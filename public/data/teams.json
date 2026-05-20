@@ -1,0 +1,10 @@
+[
+  { "id": "A1", "name": "Qatar", "group": "A", "fifaRank": 50 },
+  { "id": "A2", "name": "Ecuador", "group": "A", "fifaRank": 44 },
+  { "id": "A3", "name": "Senegal", "group": "A", "fifaRank": 18 },
+  { "id": "A4", "name": "Netherlands", "group": "A", "fifaRank": 8 },
+  { "id": "B1", "name": "England", "group": "B", "fifaRank": 5 },
+  { "id": "B2", "name": "USA", "group": "B", "fifaRank": 16 },
+  { "id": "B3", "name": "Iran", "group": "B", "fifaRank": 20 },
+  { "id": "B4", "name": "Wales", "group": "B", "fifaRank": 19 }
+]
