@@ -18,24 +18,27 @@ export const computeGroupStandings = (teamIds: string[], matches: Match[]): Stan
     ]),
   );
 
-  for (const m of matches) {
-    if (!m.played || m.homeScore === null || m.awayScore === null) continue;
-    if (!(m.homeTeamId in rows) || !(m.awayTeamId in rows)) continue;
+  for (const match of matches) {
+    if (!match.played || match.homeScore === null || match.awayScore === null) continue;
+    if (!(match.homeTeamId in rows) || !(match.awayTeamId in rows)) continue;
 
-    const home = rows[m.homeTeamId];
-    const away = rows[m.awayTeamId];
+    const home = rows[match.homeTeamId];
+    const away = rows[match.awayTeamId];
+
+    if (!home || !away) continue;
+
     home.played += 1;
     away.played += 1;
-    home.goalsFor += m.homeScore;
-    home.goalsAgainst += m.awayScore;
-    away.goalsFor += m.awayScore;
-    away.goalsAgainst += m.homeScore;
+    home.goalsFor += match.homeScore;
+    home.goalsAgainst += match.awayScore;
+    away.goalsFor += match.awayScore;
+    away.goalsAgainst += match.homeScore;
 
-    if (m.homeScore > m.awayScore) {
+    if (match.homeScore > match.awayScore) {
       home.won += 1;
       away.lost += 1;
       home.points += 3;
-    } else if (m.homeScore < m.awayScore) {
+    } else if (match.homeScore < match.awayScore) {
       away.won += 1;
       home.lost += 1;
       away.points += 3;
@@ -48,6 +51,6 @@ export const computeGroupStandings = (teamIds: string[], matches: Match[]): Stan
   }
 
   return Object.values(rows)
-    .map((r) => ({ ...r, goalDiff: r.goalsFor - r.goalsAgainst }))
+    .map((row) => ({ ...row, goalDiff: row.goalsFor - row.goalsAgainst }))
     .sort((a, b) => b.points - a.points || b.goalDiff - a.goalDiff || b.goalsFor - a.goalsFor);
 };
