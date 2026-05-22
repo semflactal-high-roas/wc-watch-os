@@ -2,15 +2,73 @@ import { useEffect, useMemo, useState } from 'react';
 import { loadAppData } from './data/loader';
 import { computeGroupStandings } from './logic/standings';
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
-import type { AppData, StandingRow } from './types';
+import type { AppData, Match, StandingRow, Team } from './types';
+
+type Tab = 'home' | 'schedule' | 'settings';
+
+type UserPreferences = {
+  mainFavoriteTeamId: string;
+  selectedTeamIds: string[];
+};
+
+const preferencesKey = 'wc-watch-os:userPreferences';
+
+const defaultPreferences: UserPreferences = {
+  mainFavoriteTeamId: '',
+  selectedTeamIds: [],
+};
+
+const tabs: { id: Tab; label: string }[] = [
+  { id: 'home', label: 'Home' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'settings', label: 'Settings' },
+];
+
+const readPreferences = (): UserPreferences => {
+  if (typeof window === 'undefined') return defaultPreferences;
+
+  try {
+    const raw = window.localStorage.getItem(preferencesKey);
+    if (!raw) return defaultPreferences;
+
+    const parsed = JSON.parse(raw) as Partial<UserPreferences>;
+    return {
+      mainFavoriteTeamId: typeof parsed.mainFavoriteTeamId === 'string' ? parsed.mainFavoriteTeamId : '',
+      selectedTeamIds: Array.isArray(parsed.selectedTeamIds)
+        ? parsed.selectedTeamIds.filter((teamId): teamId is string => typeof teamId === 'string')
+        : [],
+    };
+  } catch {
+    return defaultPreferences;
+  }
+};
+
+const scoreLabel = (match: Match): string => {
+  if (!match.played || match.homeScore === null || match.awayScore === null) return '未実施';
+  return `${match.homeScore} - ${match.awayScore}`;
+};
+
+const teamName = (teams: Team[], teamId: string): string => {
+  return teams.find((team) => team.id === teamId)?.name ?? teamId;
+};
+
+const formatRecord = (row: StandingRow): string => {
+  return `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
+};
 
 function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [preferences, setPreferences] = useState<UserPreferences>(() => readPreferences());
 
   useEffect(() => {
     loadAppData().then(setData).catch((e: Error) => setError(e.message));
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(preferencesKey, JSON.stringify(preferences));
+  }, [preferences]);
 
   const standings = useMemo(() => {
     if (!data) return [];
@@ -32,57 +90,288 @@ function App() {
     return rankThirdPlaceTeams(thirds);
   }, [standings]);
 
+  const recommendedMatches = useMemo(() => {
+    if (!data) return [];
+
+    const japan = data.teams.find((team) => team.name === 'Japan');
+    const priorityTeamIds = [
+      preferences.mainFavoriteTeamId,
+      ...preferences.selectedTeamIds,
+      japan?.id ?? '',
+    ].filter(Boolean);
+    const fallbackTeamId = data.teams[0]?.id;
+    const targetTeamIds = priorityTeamIds.length > 0 ? priorityTeamIds : fallbackTeamId ? [fallbackTeamId] : [];
+
+    const matches = data.matches.filter(
+      (match) => targetTeamIds.includes(match.homeTeamId) || targetTeamIds.includes(match.awayTeamId),
+    );
+
+    return matches.length > 0 ? matches.slice(0, 3) : data.matches.slice(0, 3);
+  }, [data, preferences.mainFavoriteTeamId, preferences.selectedTeamIds]);
+
   if (error) return <div className="p-6">Error: {error}</div>;
   if (!data) return <div className="p-6">Loading...</div>;
 
   return (
-    <main className="mx-auto min-h-screen max-w-md space-y-6 bg-slate-950 p-6 text-slate-50">
-      <header className="space-y-2">
-        <p className="text-sm text-cyan-300">今日見るべきW杯 - 観戦OS</p>
-        <h1 className="text-2xl font-bold">World Cup Viewing OS</h1>
-        <p className="text-sm text-slate-300">ダミーデータで順位表と3位通過ラインを確認するMVPです。</p>
-      </header>
+    <main className="min-h-screen bg-slate-950 text-slate-50">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-24 pt-5">
+        <header className="mb-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg">
+          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">World Cup Viewing OS</p>
+          <h1 className="mt-1 text-2xl font-bold">今日見るべきW杯</h1>
+        </header>
 
-      {standings.map((group) => (
-        <section key={group.groupId} className="rounded-2xl bg-slate-900 p-4 shadow-lg">
-          <h2 className="mb-3 text-xl font-semibold">Group {group.groupId}</h2>
-          <ul className="space-y-2">
-            {group.rows.map((row, index) => {
-              const team = data.teams.find((team) => team.id === row.teamId);
-              return (
-                <li key={row.teamId} className="flex items-center justify-between rounded-xl bg-slate-800 px-3 py-2">
-                  <span>
-                    {index + 1}. {team?.name ?? row.teamId}
-                  </span>
-                  <span className="text-sm text-slate-300">
-                    {row.points} pts / GD {row.goalDiff}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+        {activeTab === 'home' && (
+          <HomeScreen
+            data={data}
+            preferences={preferences}
+            recommendedMatches={recommendedMatches}
+            standings={standings}
+            thirdPlace={thirdPlace}
+          />
+        )}
+        {activeTab === 'schedule' && <ScheduleScreen data={data} standings={standings} />}
+        {activeTab === 'settings' && (
+          <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} />
+        )}
+      </div>
 
-      <section className="rounded-2xl bg-slate-900 p-4 shadow-lg">
-        <h2 className="mb-3 text-xl font-semibold">Third-place ranking</h2>
-        <ol className="space-y-2">
-          {thirdPlace.map((row, index) => {
-            const team = data.teams.find((team) => team.id === row.teamId);
+      <nav className="fixed inset-x-0 bottom-0 border-t border-slate-800 bg-slate-950/95 px-3 py-2 backdrop-blur">
+        <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
             return (
-              <li key={row.teamId} className="flex items-center justify-between rounded-xl bg-slate-800 px-3 py-2">
-                <span>
-                  {index + 1}. {team?.name ?? row.teamId}
-                </span>
-                <span className="text-sm text-slate-300">
-                  {row.points} pts / GD {row.goalDiff}
-                </span>
-              </li>
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
+                  isActive ? 'bg-cyan-300 text-slate-950' : 'bg-slate-900 text-slate-300'
+                }`}
+              >
+                {tab.label}
+              </button>
             );
           })}
-        </ol>
-      </section>
+        </div>
+      </nav>
     </main>
+  );
+}
+
+type HomeScreenProps = {
+  data: AppData;
+  preferences: UserPreferences;
+  recommendedMatches: Match[];
+  standings: { groupId: string; rows: StandingRow[] }[];
+  thirdPlace: StandingRow[];
+};
+
+function HomeScreen({ data, preferences, recommendedMatches, standings, thirdPlace }: HomeScreenProps) {
+  const favoriteName = preferences.mainFavoriteTeamId
+    ? teamName(data.teams, preferences.mainFavoriteTeamId)
+    : '未設定';
+
+  return (
+    <div className="space-y-5">
+      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <h2 className="text-lg font-semibold">今日見るべき試合</h2>
+        <p className="text-sm leading-6 text-slate-300">
+          推し国や日本に関係する試合を優先して表示します。今はダミーデータに基づく簡易表示です。
+        </p>
+        <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm text-slate-300">メイン推し国: {favoriteName}</p>
+        <div className="space-y-3">
+          {recommendedMatches.map((match) => (
+            <MatchCard key={match.id} match={match} teams={data.teams} compact />
+          ))}
+        </div>
+      </section>
+
+      <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} />
+    </div>
+  );
+}
+
+type ScheduleScreenProps = {
+  data: AppData;
+  standings: { groupId: string; rows: StandingRow[] }[];
+};
+
+function ScheduleScreen({ data, standings }: ScheduleScreenProps) {
+  return (
+    <div className="space-y-5">
+      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <h2 className="text-lg font-semibold">試合一覧</h2>
+        <div className="space-y-3">
+          {data.matches.map((match) => (
+            <MatchCard key={match.id} match={match} teams={data.teams} />
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <h2 className="text-lg font-semibold">グループ順位</h2>
+        <div className="space-y-3">
+          {standings.map((group) => (
+            <div key={group.groupId} className="rounded-xl bg-slate-800 p-3">
+              <h3 className="mb-2 text-sm font-semibold text-cyan-300">Group {group.groupId}</h3>
+              <div className="space-y-2">
+                {group.rows.map((row, index) => (
+                  <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={data.teams} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type SettingsScreenProps = {
+  data: AppData;
+  preferences: UserPreferences;
+  onPreferencesChange: (preferences: UserPreferences) => void;
+};
+
+function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScreenProps) {
+  const setMainFavoriteTeamId = (mainFavoriteTeamId: string) => {
+    onPreferencesChange({ ...preferences, mainFavoriteTeamId });
+  };
+
+  const toggleSelectedTeamId = (teamId: string, selected: boolean) => {
+    const selectedTeamIds = selected
+      ? [...new Set([...preferences.selectedTeamIds, teamId])]
+      : preferences.selectedTeamIds.filter((selectedTeamId) => selectedTeamId !== teamId);
+
+    onPreferencesChange({ ...preferences, selectedTeamIds });
+  };
+
+  return (
+    <section className="space-y-5 rounded-2xl bg-slate-900 p-4 shadow-lg">
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold">Settings</h2>
+        <p className="text-sm leading-6 text-slate-300">推し国の設定はこの端末のブラウザに保存されます。</p>
+      </div>
+
+      <label className="block space-y-2">
+        <span className="text-sm font-semibold text-slate-200">メイン推し国</span>
+        <select
+          value={preferences.mainFavoriteTeamId}
+          onChange={(event) => setMainFavoriteTeamId(event.currentTarget.value)}
+          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-base text-slate-50 outline-none focus:border-cyan-300"
+        >
+          <option value="">未設定</option>
+          {data.teams.map((team) => (
+            <option key={team.id} value={team.id}>
+              {team.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-slate-200">気になる国</h3>
+        <div className="grid gap-2">
+          {data.teams.map((team) => (
+            <label key={team.id} className="flex items-center justify-between rounded-xl bg-slate-800 px-3 py-3">
+              <span>
+                <span className="block text-sm font-semibold">{team.name}</span>
+                <span className="text-xs text-slate-400">Group {team.group}</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={preferences.selectedTeamIds.includes(team.id)}
+                onChange={(event) => toggleSelectedTeamId(team.id, event.currentTarget.checked)}
+                className="h-5 w-5 accent-cyan-300"
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type MatchCardProps = {
+  match: Match;
+  teams: Team[];
+  compact?: boolean;
+};
+
+function MatchCard({ match, teams, compact = false }: MatchCardProps) {
+  return (
+    <article className="rounded-xl bg-slate-800 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{teamName(teams, match.homeTeamId)}</p>
+          <p className="truncate text-sm font-semibold">{teamName(teams, match.awayTeamId)}</p>
+        </div>
+        <div className="shrink-0 rounded-lg bg-slate-950 px-3 py-2 text-center">
+          <p className="text-sm font-bold text-cyan-300">{scoreLabel(match)}</p>
+          {!compact && <p className="mt-1 text-xs text-slate-400">{match.played ? 'played' : 'scheduled'}</p>}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+type StandingsCardsProps = {
+  standings: { groupId: string; rows: StandingRow[] }[];
+  thirdPlace: StandingRow[];
+  teams: Team[];
+};
+
+function StandingsCards({ standings, thirdPlace, teams }: StandingsCardsProps) {
+  return (
+    <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+      <h2 className="text-lg font-semibold">順位サマリー</h2>
+      <div className="space-y-3">
+        {standings.map((group) => (
+          <div key={group.groupId} className="rounded-xl bg-slate-800 p-3">
+            <h3 className="mb-2 text-sm font-semibold text-cyan-300">Group {group.groupId}</h3>
+            <div className="space-y-2">
+              {group.rows.map((row, index) => (
+                <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} compact />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl bg-slate-800 p-3">
+        <h3 className="mb-2 text-sm font-semibold text-cyan-300">3位ランキング</h3>
+        <div className="space-y-2">
+          {thirdPlace.map((row, index) => (
+            <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} compact />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type StandingRowCardProps = {
+  row: StandingRow;
+  rank: number;
+  teams: Team[];
+  compact?: boolean;
+};
+
+function StandingRowCard({ row, rank, teams, compact = false }: StandingRowCardProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-900 px-3 py-2">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold">
+          {rank}. {teamName(teams, row.teamId)}
+        </p>
+        {!compact && <p className="text-xs text-slate-400">{formatRecord(row)}</p>}
+      </div>
+      <p className="shrink-0 text-right text-xs text-slate-300">
+        <span className="font-semibold text-slate-50">{row.points} pts</span>
+        <br />
+        GD {row.goalDiff}
+      </p>
+    </div>
   );
 }
 
