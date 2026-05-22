@@ -4,6 +4,13 @@ import { filterTodayMatches, filterUpcomingMatches } from './logic/dateFilters';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { computeGroupStandings } from './logic/standings';
+import {
+  getThirdPlaceLine,
+  getThirdPlaceRowStatus,
+  getThirdPlaceStatusLabel,
+  getThirdPlaceSummary,
+  type ThirdPlaceStatus,
+} from './logic/thirdPlaceLine';
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
 import type { AppData, Match, MatchStage, QualificationSummary, StandingRow, Team } from './types';
 
@@ -48,6 +55,14 @@ const statusStyles: Record<QualificationSummary['status'], string> = {
   danger: 'bg-rose-300 text-slate-950',
   eliminated: 'bg-slate-600 text-slate-100',
   qualified: 'bg-cyan-300 text-slate-950',
+  unknown: 'bg-slate-700 text-slate-100',
+};
+
+const thirdPlaceStatusStyles: Record<ThirdPlaceStatus, string> = {
+  advance: 'bg-emerald-300 text-slate-950',
+  borderline: 'bg-amber-300 text-slate-950',
+  outside: 'bg-rose-300 text-slate-950',
+  not_third: 'bg-slate-700 text-slate-100',
   unknown: 'bg-slate-700 text-slate-100',
 };
 
@@ -136,12 +151,17 @@ function App() {
     return rankThirdPlaceTeams(thirds);
   }, [standings]);
 
+  const trackedTeamIds = useMemo(() => {
+    if (!data) return [];
+    return getTrackedTeamIds(data.teams, preferences);
+  }, [data, preferences]);
+
   const qualificationSummaries = useMemo(() => {
     if (!data) return [];
-    return getTrackedTeamIds(data.teams, preferences).map((teamId) =>
+    return trackedTeamIds.map((teamId) =>
       getQualificationSummary(teamId, data.teams, data.groups, standings, data.matches, thirdPlace),
     );
-  }, [data, preferences, standings, thirdPlace]);
+  }, [data, trackedTeamIds, standings, thirdPlace]);
 
   const rankedMatches = useMemo(() => {
     if (!data) return [];
@@ -189,6 +209,7 @@ function App() {
             qualificationSummaries={qualificationSummaries}
             standings={standings}
             thirdPlace={thirdPlace}
+            trackedTeamIds={trackedTeamIds}
           />
         )}
         {activeTab === 'schedule' && <ScheduleScreen data={data} rankedMatches={rankedMatches} standings={standings} />}
@@ -227,9 +248,18 @@ type HomeScreenProps = {
   qualificationSummaries: QualificationSummary[];
   standings: { groupId: string; rows: StandingRow[] }[];
   thirdPlace: StandingRow[];
+  trackedTeamIds: string[];
 };
 
-function HomeScreen({ data, preferences, homeRanking, qualificationSummaries, standings, thirdPlace }: HomeScreenProps) {
+function HomeScreen({
+  data,
+  preferences,
+  homeRanking,
+  qualificationSummaries,
+  standings,
+  thirdPlace,
+  trackedTeamIds,
+}: HomeScreenProps) {
   const favoriteName = preferences.mainFavoriteTeamId
     ? teamName(data.teams, preferences.mainFavoriteTeamId)
     : '未設定';
@@ -256,7 +286,7 @@ function HomeScreen({ data, preferences, homeRanking, qualificationSummaries, st
         </div>
       </section>
 
-      <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} />
+      <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} trackedTeamIds={trackedTeamIds} />
     </div>
   );
 }
@@ -512,9 +542,10 @@ type StandingsCardsProps = {
   standings: { groupId: string; rows: StandingRow[] }[];
   thirdPlace: StandingRow[];
   teams: Team[];
+  trackedTeamIds: string[];
 };
 
-function StandingsCards({ standings, thirdPlace, teams }: StandingsCardsProps) {
+function StandingsCards({ standings, thirdPlace, teams, trackedTeamIds }: StandingsCardsProps) {
   return (
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <h2 className="text-lg font-semibold">順位サマリー</h2>
@@ -531,15 +562,112 @@ function StandingsCards({ standings, thirdPlace, teams }: StandingsCardsProps) {
         ))}
       </div>
 
-      <div className="rounded-xl bg-slate-800 p-3">
-        <h3 className="mb-2 text-sm font-semibold text-cyan-300">3位ランキング</h3>
+      <ThirdPlaceLineSection thirdPlace={thirdPlace} teams={teams} trackedTeamIds={trackedTeamIds} />
+    </section>
+  );
+}
+
+type ThirdPlaceLineSectionProps = {
+  thirdPlace: StandingRow[];
+  teams: Team[];
+  trackedTeamIds: string[];
+};
+
+function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: ThirdPlaceLineSectionProps) {
+  const line = getThirdPlaceLine(thirdPlace);
+  const trackedSummaries = trackedTeamIds.map((teamId) => getThirdPlaceSummary(teamId, teams, thirdPlace));
+  const lineTeamName = line.lineTeam ? teamName(teams, line.lineTeam.teamId) : '-';
+  const firstOutsideName = line.firstOutsideTeam ? teamName(teams, line.firstOutsideTeam.teamId) : '-';
+
+  return (
+    <div className="space-y-3 rounded-xl bg-slate-800 p-3">
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-cyan-300">3位通過ライン</h3>
+        <p className="text-sm leading-6 text-slate-300">
+          MVP版では3位ランキング上位8チームを通過圏として、8位を現在の通過ラインとして表示します。
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-cyan-300/30 bg-slate-900 p-3">
+        <p className="text-xs font-semibold text-slate-400">現在の8位ライン</p>
+        <p className="mt-1 text-base font-semibold">{lineTeamName}</p>
+        {line.lineTeam ? (
+          <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+            <Metric label="勝点" value={`${line.lineTeam.points}`} />
+            <Metric label="得失点差" value={`${line.lineTeam.goalDiff}`} />
+            <Metric label="総得点" value={`${line.lineTeam.goalsFor}`} />
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-slate-400">3位チーム数がまだ不足しています。</p>
+        )}
+        <p className="mt-3 text-xs leading-5 text-slate-400">
+          圏外先頭: {firstOutsideName}
+          {line.pointsGapToOutside !== null && line.goalDiffGapToOutside !== null
+            ? ` / 9位との差: 勝点${line.pointsGapToOutside}, 得失点差${line.goalDiffGapToOutside}`
+            : ' / 9位との差は未算出'}
+        </p>
+      </div>
+
+      {trackedSummaries.length > 0 && (
         <div className="space-y-2">
-          {thirdPlace.map((row, index) => (
-            <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} compact />
+          {trackedSummaries.map((summary) => (
+            <div key={summary.teamId} className="rounded-xl bg-slate-900 px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="truncate text-sm font-semibold">{summary.teamName}</p>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[summary.status]}`}>
+                  {summary.statusLabel}
+                </span>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-slate-400">{summary.summary}</p>
+            </div>
           ))}
         </div>
+      )}
+
+      <div className="space-y-2">
+        {thirdPlace.map((row, index) => (
+          <ThirdPlaceRowCard
+            key={row.teamId}
+            row={row}
+            rank={index + 1}
+            teams={teams}
+            highlighted={trackedTeamIds.includes(row.teamId)}
+          />
+        ))}
       </div>
-    </section>
+
+      <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">
+        MVP版では詳細タイブレーク・直接対決・フェアプレーポイント等は未反映です。
+      </p>
+    </div>
+  );
+}
+
+type ThirdPlaceRowCardProps = {
+  row: StandingRow;
+  rank: number;
+  teams: Team[];
+  highlighted: boolean;
+};
+
+function ThirdPlaceRowCard({ row, rank, teams, highlighted }: ThirdPlaceRowCardProps) {
+  const status = getThirdPlaceRowStatus(rank);
+  const label = getThirdPlaceStatusLabel(status);
+
+  return (
+    <div className={`rounded-lg px-3 py-2 ${highlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-900'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {rank}. {teamName(teams, row.teamId)}
+          </p>
+          <p className="text-xs text-slate-400">勝点 {row.points} / GD {row.goalDiff} / 得点 {row.goalsFor}</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[status]}`}>
+          {label}
+        </span>
+      </div>
+    </div>
   );
 }
 
