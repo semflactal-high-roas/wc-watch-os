@@ -5,6 +5,15 @@ export type Team = {
   fifaRank: number;
 };
 
+export type MatchStage =
+  | 'group'
+  | 'round_of_32'
+  | 'round_of_16'
+  | 'quarter_final'
+  | 'semi_final'
+  | 'third_place'
+  | 'final';
+
 export type Match = {
   id: string;
   homeTeamId: string;
@@ -12,6 +21,10 @@ export type Match = {
   homeScore: number | null;
   awayScore: number | null;
   played: boolean;
+  date: string;
+  kickoffTimeJST: string;
+  groupId?: string;
+  stage: MatchStage;
 };
 
 export type Group = {

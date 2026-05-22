@@ -1,4 +1,5 @@
-import type { Group, Match, Team } from '../types';
+import { isPastMatch, isTodayMatch, isTomorrowMatch } from './dateFilters';
+import type { Group, Match, MatchStage, Team } from '../types';
 
 export type UserPreferenceInput = {
   mainFavoriteTeamId: string;
@@ -12,6 +13,15 @@ export type MatchWithImportance = Match & {
   importanceRank: number;
   importanceLabel: MatchImportanceLabel;
   reasonTags: string[];
+};
+
+const knockoutStageScores: Partial<Record<MatchStage, number>> = {
+  round_of_32: 20,
+  round_of_16: 20,
+  quarter_final: 30,
+  semi_final: 40,
+  third_place: 20,
+  final: 50,
 };
 
 const getImportanceLabel = (score: number): MatchImportanceLabel => {
@@ -35,8 +45,8 @@ const findTeamGroup = (teams: Team[], teamId: string): string => {
 
 const isSameGroupMatch = (match: Match, teams: Team[], groups: Group[], targetTeamIds: string[]): boolean => {
   const matchGroups = new Set([
-    findTeamGroup(teams, match.homeTeamId),
-    findTeamGroup(teams, match.awayTeamId),
+    match.groupId ?? findTeamGroup(teams, match.homeTeamId),
+    match.groupId ?? findTeamGroup(teams, match.awayTeamId),
   ].filter(Boolean));
 
   if (matchGroups.size === 0) return false;
@@ -56,6 +66,7 @@ const scoreMatch = (
   teams: Team[],
   groups: Group[],
   preferences: UserPreferenceInput,
+  today: Date,
 ): Omit<MatchWithImportance, keyof Match | 'importanceRank'> => {
   let importanceScore = 0;
   const reasonTags: string[] = [];
@@ -86,9 +97,26 @@ const scoreMatch = (
     reasonTags.push('未実施');
   }
 
-  if (targetTeamIds.length > 0 && isSameGroupMatch(match, teams, groups, targetTeamIds)) {
+  if (isTodayMatch(match, today)) {
+    importanceScore += 30;
+    reasonTags.push('今日');
+  } else if (isTomorrowMatch(match, today)) {
+    importanceScore += 15;
+    reasonTags.push('明日');
+  } else if (isPastMatch(match, today)) {
+    importanceScore -= 30;
+    reasonTags.push('過去日程');
+  }
+
+  if (targetTeamIds.length > 0 && match.stage === 'group' && isSameGroupMatch(match, teams, groups, targetTeamIds)) {
     importanceScore += 20;
     reasonTags.push('推し国と同組');
+  }
+
+  const stageScore = knockoutStageScores[match.stage] ?? 0;
+  if (stageScore > 0) {
+    importanceScore += stageScore;
+    reasonTags.push(match.stage === 'final' ? '決勝' : '決勝トーナメント');
   }
 
   return {
@@ -103,13 +131,20 @@ export const rankMatchesByImportance = (
   teams: Team[],
   groups: Group[],
   preferences: UserPreferenceInput,
+  today: Date = new Date(),
 ): MatchWithImportance[] => {
   return matches
     .map((match) => ({
       ...match,
-      ...scoreMatch(match, teams, groups, preferences),
+      ...scoreMatch(match, teams, groups, preferences, today),
       importanceRank: 0,
     }))
-    .sort((a, b) => b.importanceScore - a.importanceScore || a.id.localeCompare(b.id))
+    .sort(
+      (a, b) =>
+        b.importanceScore - a.importanceScore ||
+        a.date.localeCompare(b.date) ||
+        a.kickoffTimeJST.localeCompare(b.kickoffTimeJST) ||
+        a.id.localeCompare(b.id),
+    )
     .map((match, index) => ({ ...match, importanceRank: index + 1 }));
 };

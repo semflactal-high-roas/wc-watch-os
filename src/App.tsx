@@ -1,15 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadAppData } from './data/loader';
+import { filterTodayMatches, filterUpcomingMatches } from './logic/dateFilters';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { computeGroupStandings } from './logic/standings';
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
-import type { AppData, Match, StandingRow, Team } from './types';
+import type { AppData, Match, MatchStage, StandingRow, Team } from './types';
 
 type Tab = 'home' | 'schedule' | 'settings';
 
 type UserPreferences = {
   mainFavoriteTeamId: string;
   selectedTeamIds: string[];
+};
+
+type HomeRanking = {
+  matches: MatchWithImportance[];
+  isFallback: boolean;
 };
 
 const preferencesKey = 'wc-watch-os:userPreferences';
@@ -24,6 +30,16 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'schedule', label: 'Schedule' },
   { id: 'settings', label: 'Settings' },
 ];
+
+const stageLabels: Record<MatchStage, string> = {
+  group: 'Group',
+  round_of_32: 'Round of 32',
+  round_of_16: 'Round of 16',
+  quarter_final: 'Quarter-final',
+  semi_final: 'Semi-final',
+  third_place: 'Third-place match',
+  final: 'Final',
+};
 
 const readPreferences = (): UserPreferences => {
   if (typeof window === 'undefined') return defaultPreferences;
@@ -57,11 +73,21 @@ const formatRecord = (row: StandingRow): string => {
   return `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
 };
 
+const formatMatchDateTime = (match: Match): string => {
+  return `${match.date} ${match.kickoffTimeJST} JST`;
+};
+
+const formatMatchStage = (match: Match): string => {
+  if (match.stage === 'group' && match.groupId) return `Group ${match.groupId}`;
+  return stageLabels[match.stage];
+};
+
 function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string>('');
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [preferences, setPreferences] = useState<UserPreferences>(() => readPreferences());
+  const today = useMemo(() => new Date(), []);
 
   useEffect(() => {
     loadAppData().then(setData).catch((e: Error) => setError(e.message));
@@ -93,8 +119,30 @@ function App() {
 
   const rankedMatches = useMemo(() => {
     if (!data) return [];
-    return rankMatchesByImportance(data.matches, data.teams, data.groups, preferences);
-  }, [data, preferences]);
+    return rankMatchesByImportance(data.matches, data.teams, data.groups, preferences, today);
+  }, [data, preferences, today]);
+
+  const homeRanking = useMemo<HomeRanking>(() => {
+    if (!data) return { matches: [], isFallback: false };
+
+    const todayMatches = filterTodayMatches(data.matches, today);
+    if (todayMatches.length > 0) {
+      return {
+        matches: rankMatchesByImportance(todayMatches, data.teams, data.groups, preferences, today),
+        isFallback: false,
+      };
+    }
+
+    const upcomingMatches = filterUpcomingMatches(data.matches, today);
+    const nextMatch = upcomingMatches[0];
+    if (!nextMatch) return { matches: rankedMatches.slice(0, 5), isFallback: true };
+
+    const nextDateMatches = upcomingMatches.filter((match) => match.date === nextMatch.date);
+    return {
+      matches: rankMatchesByImportance(nextDateMatches, data.teams, data.groups, preferences, today),
+      isFallback: true,
+    };
+  }, [data, preferences, rankedMatches, today]);
 
   if (error) return <div className="p-6">Error: {error}</div>;
   if (!data) return <div className="p-6">Loading...</div>;
@@ -111,7 +159,7 @@ function App() {
           <HomeScreen
             data={data}
             preferences={preferences}
-            rankedMatches={rankedMatches}
+            homeRanking={homeRanking}
             standings={standings}
             thirdPlace={thirdPlace}
           />
@@ -148,12 +196,12 @@ function App() {
 type HomeScreenProps = {
   data: AppData;
   preferences: UserPreferences;
-  rankedMatches: MatchWithImportance[];
+  homeRanking: HomeRanking;
   standings: { groupId: string; rows: StandingRow[] }[];
   thirdPlace: StandingRow[];
 };
 
-function HomeScreen({ data, preferences, rankedMatches, standings, thirdPlace }: HomeScreenProps) {
+function HomeScreen({ data, preferences, homeRanking, standings, thirdPlace }: HomeScreenProps) {
   const favoriteName = preferences.mainFavoriteTeamId
     ? teamName(data.teams, preferences.mainFavoriteTeamId)
     : '未設定';
@@ -163,11 +211,16 @@ function HomeScreen({ data, preferences, rankedMatches, standings, thirdPlace }:
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
         <p className="text-sm leading-6 text-slate-300">
-          推し国や日本、同じグループへの影響を点数化して、見る優先度が高い順に並べます。
+          推し国や日本、同じグループへの影響、日付、ステージを点数化して、見る優先度が高い順に並べます。
         </p>
+        {homeRanking.isFallback && (
+          <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+            今日の対象試合がないため、直近の注目試合を表示しています。
+          </p>
+        )}
         <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm text-slate-300">メイン推し国: {favoriteName}</p>
         <div className="space-y-3">
-          {rankedMatches.slice(0, 5).map((match) => (
+          {homeRanking.matches.slice(0, 5).map((match) => (
             <MatchCard key={match.id} match={match} teams={data.teams} showRank />
           ))}
         </div>
@@ -315,6 +368,8 @@ function MatchCard({ match, teams, compact = false, showRank = false }: MatchCar
               <span className="text-xs font-semibold text-slate-400">{importance.importanceScore}点</span>
             )}
           </div>
+          <p className="text-xs font-semibold text-slate-400">{formatMatchDateTime(match)}</p>
+          <p className="mb-2 text-xs text-slate-400">{formatMatchStage(match)}</p>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.homeTeamId)}</p>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.awayTeamId)}</p>
           {importance && !compact && (
