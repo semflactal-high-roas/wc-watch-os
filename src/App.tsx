@@ -14,7 +14,8 @@ import {
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
 import type { AppData, Match, MatchStage, QualificationSummary, StandingRow, Team } from './types';
 
-type Tab = 'home' | 'schedule' | 'settings';
+type MainScreen = 'home' | 'schedule' | 'settings';
+type Screen = MainScreen | 'matchDetail';
 
 type UserPreferences = {
   mainFavoriteTeamId: string;
@@ -33,7 +34,7 @@ const defaultPreferences: UserPreferences = {
   selectedTeamIds: [],
 };
 
-const tabs: { id: Tab; label: string }[] = [
+const tabs: { id: MainScreen; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'settings', label: 'Settings' },
@@ -116,10 +117,33 @@ const getTrackedTeamIds = (teams: Team[], preferences: UserPreferences): string[
   return [...new Set(ids)];
 };
 
+const matchIncludesTeam = (match: Match, teamId: string): boolean => {
+  return match.homeTeamId === teamId || match.awayTeamId === teamId;
+};
+
+const teamGroup = (teams: Team[], teamId: string): string => {
+  return teams.find((team) => team.id === teamId)?.group ?? '';
+};
+
+const isSameGroupAsTrackedTeam = (match: Match, teams: Team[], trackedTeamIds: string[]): boolean => {
+  const matchGroups = new Set([
+    match.groupId,
+    teamGroup(teams, match.homeTeamId),
+    teamGroup(teams, match.awayTeamId),
+  ].filter(Boolean));
+
+  return trackedTeamIds.some((teamId) => {
+    const group = teamGroup(teams, teamId);
+    return group ? matchGroups.has(group) : false;
+  });
+};
+
 function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [activeScreen, setActiveScreen] = useState<Screen>('home');
+  const [detailReturnScreen, setDetailReturnScreen] = useState<MainScreen>('home');
+  const [selectedMatchId, setSelectedMatchId] = useState<string>('');
   const [preferences, setPreferences] = useState<UserPreferences>(() => readPreferences());
   const today = useMemo(() => new Date(), []);
 
@@ -190,6 +214,21 @@ function App() {
     };
   }, [data, preferences, rankedMatches, today]);
 
+  const selectedMatch = useMemo(() => {
+    return rankedMatches.find((match) => match.id === selectedMatchId) ?? null;
+  }, [rankedMatches, selectedMatchId]);
+
+  const openMatchDetail = (matchId: string, returnScreen: MainScreen) => {
+    setSelectedMatchId(matchId);
+    setDetailReturnScreen(returnScreen);
+    setActiveScreen('matchDetail');
+  };
+
+  const closeMatchDetail = () => {
+    setActiveScreen(detailReturnScreen);
+    setSelectedMatchId('');
+  };
+
   if (error) return <div className="p-6">Error: {error}</div>;
   if (!data) return <div className="p-6">Loading...</div>;
 
@@ -201,7 +240,7 @@ function App() {
           <h1 className="mt-1 text-2xl font-bold">今日見るべきW杯</h1>
         </header>
 
-        {activeTab === 'home' && (
+        {activeScreen === 'home' && (
           <HomeScreen
             data={data}
             preferences={preferences}
@@ -210,33 +249,61 @@ function App() {
             standings={standings}
             thirdPlace={thirdPlace}
             trackedTeamIds={trackedTeamIds}
+            onMatchSelect={(matchId) => openMatchDetail(matchId, 'home')}
           />
         )}
-        {activeTab === 'schedule' && <ScheduleScreen data={data} rankedMatches={rankedMatches} standings={standings} />}
-        {activeTab === 'settings' && (
+        {activeScreen === 'schedule' && (
+          <ScheduleScreen
+            data={data}
+            rankedMatches={rankedMatches}
+            standings={standings}
+            onMatchSelect={(matchId) => openMatchDetail(matchId, 'schedule')}
+          />
+        )}
+        {activeScreen === 'settings' && (
           <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} />
+        )}
+        {activeScreen === 'matchDetail' && selectedMatch && (
+          <MatchDetailScreen
+            match={selectedMatch}
+            teams={data.teams}
+            preferences={preferences}
+            trackedTeamIds={trackedTeamIds}
+            returnScreen={detailReturnScreen}
+            onBack={closeMatchDetail}
+          />
+        )}
+        {activeScreen === 'matchDetail' && !selectedMatch && (
+          <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+            <h2 className="text-lg font-semibold">試合が見つかりません</h2>
+            <button type="button" onClick={closeMatchDetail} className="rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950">
+              戻る
+            </button>
+          </section>
         )}
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 border-t border-slate-800 bg-slate-950/95 px-3 py-2 backdrop-blur">
-        <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
-                  isActive ? 'bg-cyan-300 text-slate-950' : 'bg-slate-900 text-slate-300'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      {activeScreen !== 'matchDetail' && (
+        <nav className="fixed inset-x-0 bottom-0 border-t border-slate-800 bg-slate-950/95 px-3 py-2 backdrop-blur">
+          <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+            {tabs.map((tab) => {
+              const isActive = activeScreen === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveScreen(tab.id)}
+                  className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
+                    isActive ? 'bg-cyan-300 text-slate-950' : 'bg-slate-900 text-slate-300'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </main>
   );
 }
@@ -249,6 +316,7 @@ type HomeScreenProps = {
   standings: { groupId: string; rows: StandingRow[] }[];
   thirdPlace: StandingRow[];
   trackedTeamIds: string[];
+  onMatchSelect: (matchId: string) => void;
 };
 
 function HomeScreen({
@@ -259,6 +327,7 @@ function HomeScreen({
   standings,
   thirdPlace,
   trackedTeamIds,
+  onMatchSelect,
 }: HomeScreenProps) {
   const favoriteName = preferences.mainFavoriteTeamId
     ? teamName(data.teams, preferences.mainFavoriteTeamId)
@@ -281,7 +350,7 @@ function HomeScreen({
         <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm text-slate-300">メイン推し国: {favoriteName}</p>
         <div className="space-y-3">
           {homeRanking.matches.slice(0, 5).map((match) => (
-            <MatchCard key={match.id} match={match} teams={data.teams} showRank />
+            <MatchCard key={match.id} match={match} teams={data.teams} showRank onSelect={() => onMatchSelect(match.id)} />
           ))}
         </div>
       </section>
@@ -382,9 +451,10 @@ type ScheduleScreenProps = {
   data: AppData;
   rankedMatches: MatchWithImportance[];
   standings: { groupId: string; rows: StandingRow[] }[];
+  onMatchSelect: (matchId: string) => void;
 };
 
-function ScheduleScreen({ data, rankedMatches, standings }: ScheduleScreenProps) {
+function ScheduleScreen({ data, rankedMatches, standings, onMatchSelect }: ScheduleScreenProps) {
   const importanceByMatchId = new Map(rankedMatches.map((match) => [match.id, match]));
 
   return (
@@ -393,7 +463,13 @@ function ScheduleScreen({ data, rankedMatches, standings }: ScheduleScreenProps)
         <h2 className="text-lg font-semibold">試合一覧</h2>
         <div className="space-y-3">
           {data.matches.map((match) => (
-            <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={data.teams} compact />
+            <MatchCard
+              key={match.id}
+              match={importanceByMatchId.get(match.id) ?? match}
+              teams={data.teams}
+              compact
+              onSelect={() => onMatchSelect(match.id)}
+            />
           ))}
         </div>
       </section>
@@ -487,17 +563,23 @@ type MatchCardProps = {
   teams: Team[];
   compact?: boolean;
   showRank?: boolean;
+  onSelect?: () => void;
 };
 
 const hasImportance = (match: Match | MatchWithImportance): match is MatchWithImportance => {
   return 'importanceScore' in match;
 };
 
-function MatchCard({ match, teams, compact = false, showRank = false }: MatchCardProps) {
+function MatchCard({ match, teams, compact = false, showRank = false, onSelect }: MatchCardProps) {
   const importance = hasImportance(match) ? match : null;
 
   return (
-    <article className="rounded-xl bg-slate-800 p-3">
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={!onSelect}
+      className={`w-full rounded-xl bg-slate-800 p-3 text-left ${onSelect ? 'transition hover:bg-slate-700' : 'cursor-default'}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -534,9 +616,147 @@ function MatchCard({ match, teams, compact = false, showRank = false }: MatchCar
           <p className="mt-1 text-xs text-slate-400">{match.played ? 'played' : '未実施'}</p>
         </div>
       </div>
-    </article>
+    </button>
   );
 }
+
+type MatchDetailScreenProps = {
+  match: MatchWithImportance;
+  teams: Team[];
+  preferences: UserPreferences;
+  trackedTeamIds: string[];
+  returnScreen: MainScreen;
+  onBack: () => void;
+};
+
+function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnScreen, onBack }: MatchDetailScreenProps) {
+  const japanTeamId = findJapanTeamId(teams);
+  const mainFavoriteName = preferences.mainFavoriteTeamId ? teamName(teams, preferences.mainFavoriteTeamId) : '';
+  const selectedTeamNames = preferences.selectedTeamIds
+    .filter((teamId) => matchIncludesTeam(match, teamId))
+    .map((teamId) => teamName(teams, teamId));
+  const viewingPoints = getViewingPoints(match, teams, preferences, trackedTeamIds);
+  const impactItems = getImpactItems(match);
+  const backLabel = returnScreen === 'schedule' ? 'Scheduleに戻る' : 'Homeに戻る';
+
+  return (
+    <div className="space-y-5">
+      <button type="button" onClick={onBack} className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-cyan-300">
+        {backLabel}
+      </button>
+
+      <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">Match Detail</p>
+          <h2 className="text-2xl font-bold leading-tight">
+            {teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <Metric label="日付" value={match.date} />
+          <Metric label="Kickoff" value={`${match.kickoffTimeJST} JST`} />
+          <Metric label="Stage" value={formatMatchStage(match)} />
+          <Metric label="状態" value={match.played ? 'played' : '未実施'} />
+          <Metric label="スコア" value={scoreLabel(match)} />
+          <Metric label="重要度" value={`${match.importanceLabel} / ${match.importanceScore}点`} />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {match.reasonTags.map((tag) => (
+            <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <h3 className="text-lg font-semibold">関係性</h3>
+        <div className="grid gap-2 text-sm">
+          <Metric
+            label="日本代表との関係"
+            value={japanTeamId ? (matchIncludesTeam(match, japanTeamId) ? '日本代表が関係する試合' : '直接関係なし') : '日本代表データなし'}
+          />
+          <Metric
+            label="メイン推し国との関係"
+            value={preferences.mainFavoriteTeamId ? (matchIncludesTeam(match, preferences.mainFavoriteTeamId) ? `${mainFavoriteName} が関係` : '直接関係なし') : '未設定'}
+          />
+          <Metric
+            label="選択中の推し国との関係"
+            value={selectedTeamNames.length > 0 ? selectedTeamNames.join(' / ') : '直接関係なし'}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <h3 className="text-lg font-semibold">観戦ポイント</h3>
+        <ul className="space-y-2">
+          {viewingPoints.map((point) => (
+            <li key={point} className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-slate-200">
+              {point}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <h3 className="text-lg font-semibold">勝敗時インパクト</h3>
+        <div className="space-y-2">
+          {impactItems.map((item) => (
+            <div key={item.label} className="rounded-xl bg-slate-800 px-3 py-2">
+              <p className="text-sm font-semibold text-cyan-300">{item.label}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-300">{item.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+const getViewingPoints = (
+  match: MatchWithImportance,
+  teams: Team[],
+  preferences: UserPreferences,
+  trackedTeamIds: string[],
+): string[] => {
+  const points: string[] = [];
+  const japanTeamId = findJapanTeamId(teams);
+
+  if (japanTeamId && matchIncludesTeam(match, japanTeamId)) points.push('日本代表が関係する試合です。');
+  if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) {
+    points.push('メイン推し国が関係する試合です。');
+  }
+  if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) {
+    points.push('選択中の推し国が関係する試合です。');
+  }
+  if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) {
+    points.push('推し国と同組のため、順位に影響する可能性があります。');
+  }
+  if (match.stage === 'group') points.push('3位通過ラインに関わる可能性があります。');
+  if (match.played) points.push('消化済みの試合です。現在の順位表・3位通過ラインに結果が反映されています。');
+  if (points.length === 0) points.push('今後のステージや他会場結果を見るうえで参考になる試合です。');
+
+  return [...new Set(points)];
+};
+
+const getImpactItems = (match: Match): { label: string; text: string }[] => {
+  if (match.played) {
+    return [
+      {
+        label: '終了済み',
+        text: 'この試合は終了済みです。現在の順位表・3位通過ラインに結果が反映されています。',
+      },
+    ];
+  }
+
+  return [
+    { label: '勝利時', text: '勝点3を積み上げ、突破圏に近づきます。' },
+    { label: '引き分け時', text: '勝点1を積み上げますが、他会場結果の影響を受けやすくなります。' },
+    { label: '敗戦時', text: '勝点を積めず、3位通過ラインや他会場結果への依存が高まります。' },
+  ];
+};
 
 type StandingsCardsProps = {
   standings: { groupId: string; rows: StandingRow[] }[];
