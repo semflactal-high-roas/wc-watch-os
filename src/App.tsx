@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadAppData } from './data/loader';
+import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { computeGroupStandings } from './logic/standings';
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
 import type { AppData, Match, StandingRow, Team } from './types';
@@ -90,24 +91,10 @@ function App() {
     return rankThirdPlaceTeams(thirds);
   }, [standings]);
 
-  const recommendedMatches = useMemo(() => {
+  const rankedMatches = useMemo(() => {
     if (!data) return [];
-
-    const japan = data.teams.find((team) => team.name === 'Japan');
-    const priorityTeamIds = [
-      preferences.mainFavoriteTeamId,
-      ...preferences.selectedTeamIds,
-      japan?.id ?? '',
-    ].filter(Boolean);
-    const fallbackTeamId = data.teams[0]?.id;
-    const targetTeamIds = priorityTeamIds.length > 0 ? priorityTeamIds : fallbackTeamId ? [fallbackTeamId] : [];
-
-    const matches = data.matches.filter(
-      (match) => targetTeamIds.includes(match.homeTeamId) || targetTeamIds.includes(match.awayTeamId),
-    );
-
-    return matches.length > 0 ? matches.slice(0, 3) : data.matches.slice(0, 3);
-  }, [data, preferences.mainFavoriteTeamId, preferences.selectedTeamIds]);
+    return rankMatchesByImportance(data.matches, data.teams, data.groups, preferences);
+  }, [data, preferences]);
 
   if (error) return <div className="p-6">Error: {error}</div>;
   if (!data) return <div className="p-6">Loading...</div>;
@@ -124,12 +111,12 @@ function App() {
           <HomeScreen
             data={data}
             preferences={preferences}
-            recommendedMatches={recommendedMatches}
+            rankedMatches={rankedMatches}
             standings={standings}
             thirdPlace={thirdPlace}
           />
         )}
-        {activeTab === 'schedule' && <ScheduleScreen data={data} standings={standings} />}
+        {activeTab === 'schedule' && <ScheduleScreen data={data} rankedMatches={rankedMatches} standings={standings} />}
         {activeTab === 'settings' && (
           <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} />
         )}
@@ -161,12 +148,12 @@ function App() {
 type HomeScreenProps = {
   data: AppData;
   preferences: UserPreferences;
-  recommendedMatches: Match[];
+  rankedMatches: MatchWithImportance[];
   standings: { groupId: string; rows: StandingRow[] }[];
   thirdPlace: StandingRow[];
 };
 
-function HomeScreen({ data, preferences, recommendedMatches, standings, thirdPlace }: HomeScreenProps) {
+function HomeScreen({ data, preferences, rankedMatches, standings, thirdPlace }: HomeScreenProps) {
   const favoriteName = preferences.mainFavoriteTeamId
     ? teamName(data.teams, preferences.mainFavoriteTeamId)
     : '未設定';
@@ -174,14 +161,14 @@ function HomeScreen({ data, preferences, recommendedMatches, standings, thirdPla
   return (
     <div className="space-y-5">
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
-        <h2 className="text-lg font-semibold">今日見るべき試合</h2>
+        <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
         <p className="text-sm leading-6 text-slate-300">
-          推し国や日本に関係する試合を優先して表示します。今はダミーデータに基づく簡易表示です。
+          推し国や日本、同じグループへの影響を点数化して、見る優先度が高い順に並べます。
         </p>
         <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm text-slate-300">メイン推し国: {favoriteName}</p>
         <div className="space-y-3">
-          {recommendedMatches.map((match) => (
-            <MatchCard key={match.id} match={match} teams={data.teams} compact />
+          {rankedMatches.slice(0, 5).map((match) => (
+            <MatchCard key={match.id} match={match} teams={data.teams} showRank />
           ))}
         </div>
       </section>
@@ -193,17 +180,20 @@ function HomeScreen({ data, preferences, recommendedMatches, standings, thirdPla
 
 type ScheduleScreenProps = {
   data: AppData;
+  rankedMatches: MatchWithImportance[];
   standings: { groupId: string; rows: StandingRow[] }[];
 };
 
-function ScheduleScreen({ data, standings }: ScheduleScreenProps) {
+function ScheduleScreen({ data, rankedMatches, standings }: ScheduleScreenProps) {
+  const importanceByMatchId = new Map(rankedMatches.map((match) => [match.id, match]));
+
   return (
     <div className="space-y-5">
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">試合一覧</h2>
         <div className="space-y-3">
           {data.matches.map((match) => (
-            <MatchCard key={match.id} match={match} teams={data.teams} />
+            <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={data.teams} compact />
           ))}
         </div>
       </section>
@@ -293,22 +283,53 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScre
 }
 
 type MatchCardProps = {
-  match: Match;
+  match: Match | MatchWithImportance;
   teams: Team[];
   compact?: boolean;
+  showRank?: boolean;
 };
 
-function MatchCard({ match, teams, compact = false }: MatchCardProps) {
+const hasImportance = (match: Match | MatchWithImportance): match is MatchWithImportance => {
+  return 'importanceScore' in match;
+};
+
+function MatchCard({ match, teams, compact = false, showRank = false }: MatchCardProps) {
+  const importance = hasImportance(match) ? match : null;
+
   return (
     <article className="rounded-xl bg-slate-800 p-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {showRank && importance && (
+              <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">
+                #{importance.importanceRank}
+              </span>
+            )}
+            {importance && (
+              <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-cyan-300">
+                重要度 {importance.importanceLabel}
+              </span>
+            )}
+            {importance && !compact && (
+              <span className="text-xs font-semibold text-slate-400">{importance.importanceScore}点</span>
+            )}
+          </div>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.homeTeamId)}</p>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.awayTeamId)}</p>
+          {importance && !compact && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {importance.reasonTags.map((tag) => (
+                <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="shrink-0 rounded-lg bg-slate-950 px-3 py-2 text-center">
           <p className="text-sm font-bold text-cyan-300">{scoreLabel(match)}</p>
-          {!compact && <p className="mt-1 text-xs text-slate-400">{match.played ? 'played' : 'scheduled'}</p>}
+          <p className="mt-1 text-xs text-slate-400">{match.played ? 'played' : '未実施'}</p>
         </div>
       </div>
     </article>
