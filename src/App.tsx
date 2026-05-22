@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { loadAppData } from './data/loader';
 import { filterTodayMatches, filterUpcomingMatches } from './logic/dateFilters';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
+import { getQualificationSummary } from './logic/qualificationStatus';
 import { computeGroupStandings } from './logic/standings';
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
-import type { AppData, Match, MatchStage, StandingRow, Team } from './types';
+import type { AppData, Match, MatchStage, QualificationSummary, StandingRow, Team } from './types';
 
 type Tab = 'home' | 'schedule' | 'settings';
 
@@ -39,6 +40,15 @@ const stageLabels: Record<MatchStage, string> = {
   semi_final: 'Semi-final',
   third_place: 'Third-place match',
   final: 'Final',
+};
+
+const statusStyles: Record<QualificationSummary['status'], string> = {
+  safe: 'bg-emerald-300 text-slate-950',
+  borderline: 'bg-amber-300 text-slate-950',
+  danger: 'bg-rose-300 text-slate-950',
+  eliminated: 'bg-slate-600 text-slate-100',
+  qualified: 'bg-cyan-300 text-slate-950',
+  unknown: 'bg-slate-700 text-slate-100',
 };
 
 const readPreferences = (): UserPreferences => {
@@ -82,6 +92,15 @@ const formatMatchStage = (match: Match): string => {
   return stageLabels[match.stage];
 };
 
+const findJapanTeamId = (teams: Team[]): string => {
+  return teams.find((team) => team.name === 'Japan')?.id ?? '';
+};
+
+const getTrackedTeamIds = (teams: Team[], preferences: UserPreferences): string[] => {
+  const ids = [findJapanTeamId(teams), preferences.mainFavoriteTeamId, ...preferences.selectedTeamIds].filter(Boolean);
+  return [...new Set(ids)];
+};
+
 function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string>('');
@@ -116,6 +135,13 @@ function App() {
 
     return rankThirdPlaceTeams(thirds);
   }, [standings]);
+
+  const qualificationSummaries = useMemo(() => {
+    if (!data) return [];
+    return getTrackedTeamIds(data.teams, preferences).map((teamId) =>
+      getQualificationSummary(teamId, data.teams, data.groups, standings, data.matches, thirdPlace),
+    );
+  }, [data, preferences, standings, thirdPlace]);
 
   const rankedMatches = useMemo(() => {
     if (!data) return [];
@@ -160,6 +186,7 @@ function App() {
             data={data}
             preferences={preferences}
             homeRanking={homeRanking}
+            qualificationSummaries={qualificationSummaries}
             standings={standings}
             thirdPlace={thirdPlace}
           />
@@ -197,17 +224,20 @@ type HomeScreenProps = {
   data: AppData;
   preferences: UserPreferences;
   homeRanking: HomeRanking;
+  qualificationSummaries: QualificationSummary[];
   standings: { groupId: string; rows: StandingRow[] }[];
   thirdPlace: StandingRow[];
 };
 
-function HomeScreen({ data, preferences, homeRanking, standings, thirdPlace }: HomeScreenProps) {
+function HomeScreen({ data, preferences, homeRanking, qualificationSummaries, standings, thirdPlace }: HomeScreenProps) {
   const favoriteName = preferences.mainFavoriteTeamId
     ? teamName(data.teams, preferences.mainFavoriteTeamId)
     : '未設定';
 
   return (
     <div className="space-y-5">
+      <QualificationStatusSection summaries={qualificationSummaries} />
+
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
         <p className="text-sm leading-6 text-slate-300">
@@ -227,6 +257,93 @@ function HomeScreen({ data, preferences, homeRanking, standings, thirdPlace }: H
       </section>
 
       <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} />
+    </div>
+  );
+}
+
+type QualificationStatusSectionProps = {
+  summaries: QualificationSummary[];
+};
+
+function QualificationStatusSection({ summaries }: QualificationStatusSectionProps) {
+  return (
+    <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold">突破条件カード</h2>
+        <p className="text-sm leading-6 text-slate-300">
+          日本代表・メイン推し国・選択中の推し国について、現在順位と残り試合からMVP版の見通しを表示します。
+        </p>
+      </div>
+
+      {summaries.length === 0 ? (
+        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">
+          対象チームが未設定です。Settingsで推し国を選ぶと表示されます。
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {summaries.map((summary) => (
+            <QualificationCard key={summary.teamId} summary={summary} />
+          ))}
+        </div>
+      )}
+
+      <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">
+        MVP版では詳細タイブレーク・直接対決・フェアプレーポイント・抽選等は未反映です。
+      </p>
+    </section>
+  );
+}
+
+type QualificationCardProps = {
+  summary: QualificationSummary;
+};
+
+function QualificationCard({ summary }: QualificationCardProps) {
+  const standing = summary.context?.standing;
+  const rank = summary.context?.groupRank;
+  const remainingText = summary.context
+    ? summary.context.remainingMatches === 0
+      ? '全日程消化'
+      : `残り${summary.context.remainingMatches}試合`
+    : '残り試合不明';
+
+  return (
+    <article className="space-y-3 rounded-xl bg-slate-800 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold">{summary.teamName}</p>
+          <p className="text-xs text-slate-400">
+            {summary.context?.groupId ? `Group ${summary.context.groupId}` : 'Group unknown'}
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${statusStyles[summary.status]}`}>
+          {summary.statusLabel}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <Metric label="現在順位" value={rank ? `${rank}位` : '判定保留'} />
+        <Metric label="勝点" value={standing ? `${standing.points}` : '-'} />
+        <Metric label="得失点差" value={standing ? `${standing.goalDiff}` : '-'} />
+        <Metric label="残り試合" value={remainingText} />
+        {summary.thirdPlaceRank && <Metric label="3位ランキング" value={`${summary.thirdPlaceRank}位`} />}
+      </div>
+
+      <p className="text-sm leading-6 text-slate-300">{summary.summary}</p>
+    </article>
+  );
+}
+
+type MetricProps = {
+  label: string;
+  value: string;
+};
+
+function Metric({ label, value }: MetricProps) {
+  return (
+    <div className="rounded-lg bg-slate-900 px-3 py-2">
+      <p className="text-xs text-slate-400">{label}</p>
+      <p className="mt-1 font-semibold text-slate-50">{value}</p>
     </div>
   );
 }

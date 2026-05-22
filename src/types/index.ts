@@ -44,6 +44,32 @@ export type StandingRow = {
   points: number;
 };
 
+export type QualificationStatus =
+  | 'safe'
+  | 'borderline'
+  | 'danger'
+  | 'eliminated'
+  | 'qualified'
+  | 'unknown';
+
+export type TeamGroupContext = {
+  groupId: string;
+  groupRank: number | null;
+  standing: StandingRow | null;
+  remainingMatches: number;
+  groupMatchesRemaining: number;
+};
+
+export type QualificationSummary = {
+  teamId: string;
+  teamName: string;
+  status: QualificationStatus;
+  statusLabel: string;
+  summary: string;
+  context: TeamGroupContext | null;
+  thirdPlaceRank: number | null;
+};
+
 export type AppData = {
   teams: Team[];
   groups: Group[];
