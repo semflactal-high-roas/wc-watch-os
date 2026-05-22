@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadAppData } from './data/loader';
 import { filterTodayMatches, filterUpcomingMatches } from './logic/dateFilters';
+import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { computeGroupStandings } from './logic/standings';
@@ -639,6 +640,15 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
   const impactItems = getImpactItems(match);
   const backLabel = returnScreen === 'schedule' ? 'Scheduleに戻る' : 'Homeに戻る';
 
+  const handleDownloadIcs = () => {
+    const content = createMatchIcsEvent(match, teams, {
+      importanceLabel: match.importanceLabel,
+      importanceScore: match.importanceScore,
+      reasonTags: match.reasonTags,
+    });
+    downloadIcsFile(`wc-watch-os-match-${match.id}.ics`, content);
+  };
+
   return (
     <div className="space-y-5">
       <button type="button" onClick={onBack} className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-cyan-300">
@@ -661,6 +671,17 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
           <Metric label="スコア" value={scoreLabel(match)} />
           <Metric label="重要度" value={`${match.importanceLabel} / ${match.importanceScore}点`} />
         </div>
+
+        <button
+          type="button"
+          onClick={handleDownloadIcs}
+          className="w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+        >
+          ICSをダウンロード
+        </button>
+        <p className="text-xs leading-5 text-slate-400">
+          端末やブラウザによっては、ダウンロード後にカレンダーアプリで開く操作が必要です。
+        </p>
 
         <div className="flex flex-wrap gap-2">
           {match.reasonTags.map((tag) => (
