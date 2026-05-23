@@ -1,4 +1,5 @@
 import type { AppData, Group, Match, Team } from '../types';
+import { validateAppData } from '../logic/validateData';
 
 const dataPath = (fileName: string) => `${import.meta.env.BASE_URL}data/${fileName}`;
 
@@ -15,5 +16,12 @@ export const loadAppData = async (): Promise<AppData> => {
     loadJson<Match[]>(dataPath('matches.json')),
   ]);
 
-  return { teams, groups, matches };
+  const data = { teams, groups, matches };
+  const validationErrors = validateAppData(data);
+
+  if (validationErrors.length > 0) {
+    throw new Error(`データエラー: ${validationErrors.join(' / ')}`);
+  }
+
+  return data;
 };
