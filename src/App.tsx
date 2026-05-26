@@ -139,6 +139,16 @@ const isSameGroupAsTrackedTeam = (match: Match, teams: Team[], trackedTeamIds: s
   });
 };
 
+const sortJapanMatches = (matches: MatchWithImportance[]): MatchWithImportance[] => {
+  return [...matches].sort(
+    (a, b) =>
+      Number(a.played) - Number(b.played) ||
+      a.date.localeCompare(b.date) ||
+      a.kickoffTimeJST.localeCompare(b.kickoffTimeJST) ||
+      a.id.localeCompare(b.id),
+  );
+};
+
 function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string>('');
@@ -193,6 +203,13 @@ function App() {
     return rankMatchesByImportance(data.matches, data.teams, data.groups, preferences, today);
   }, [data, preferences, today]);
 
+  const japanMatches = useMemo(() => {
+    if (!data) return [];
+    const japanTeamId = findJapanTeamId(data.teams);
+    if (!japanTeamId) return [];
+    return sortJapanMatches(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId)));
+  }, [data, rankedMatches]);
+
   const homeRanking = useMemo<HomeRanking>(() => {
     if (!data) return { matches: [], isFallback: false };
 
@@ -246,6 +263,7 @@ function App() {
             data={data}
             preferences={preferences}
             homeRanking={homeRanking}
+            japanMatches={japanMatches}
             qualificationSummaries={qualificationSummaries}
             standings={standings}
             thirdPlace={thirdPlace}
@@ -313,6 +331,7 @@ type HomeScreenProps = {
   data: AppData;
   preferences: UserPreferences;
   homeRanking: HomeRanking;
+  japanMatches: MatchWithImportance[];
   qualificationSummaries: QualificationSummary[];
   standings: { groupId: string; rows: StandingRow[] }[];
   thirdPlace: StandingRow[];
@@ -324,6 +343,7 @@ function HomeScreen({
   data,
   preferences,
   homeRanking,
+  japanMatches,
   qualificationSummaries,
   standings,
   thirdPlace,
@@ -337,6 +357,8 @@ function HomeScreen({
   return (
     <div className="space-y-5">
       <QualificationStatusSection summaries={qualificationSummaries} />
+
+      <JapanMatchesSection matches={japanMatches} teams={data.teams} onMatchSelect={onMatchSelect} />
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
@@ -358,6 +380,37 @@ function HomeScreen({
 
       <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} trackedTeamIds={trackedTeamIds} />
     </div>
+  );
+}
+
+type JapanMatchesSectionProps = {
+  matches: MatchWithImportance[];
+  teams: Team[];
+  onMatchSelect: (matchId: string) => void;
+};
+
+function JapanMatchesSection({ matches, teams, onMatchSelect }: JapanMatchesSectionProps) {
+  return (
+    <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold">日本代表の試合</h2>
+        <p className="text-sm leading-6 text-slate-300">
+          推し国設定に関係なく、日本代表の試合を固定表示します。
+        </p>
+      </div>
+
+      {matches.length === 0 ? (
+        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">
+          日本代表の試合データがまだ登録されていません
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {matches.map((match) => (
+            <MatchCard key={match.id} match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
