@@ -11,6 +11,16 @@ Use this checklist before merging real data updates.
 - [ ] Source notes are recorded in the pull request or docs: `sourceName`, `sourceUrl`, `checkedAt`, `inputBy`, and `notes`.
 - [ ] Source metadata was not added to `public/data/matches.json`.
 
+## ID Design
+
+- [ ] `docs/11_data_id_design.md` was checked before assigning production IDs.
+- [ ] Production `teamId` values use stable FIFA/IOC-style uppercase codes when possible.
+- [ ] Production `groupId` values use uppercase group letters such as `A`, `B`, and `C`.
+- [ ] Group-stage `matchId` values follow `G-{groupId}-{number}`, such as `G-A-01`.
+- [ ] Knockout `matchId` values follow stage prefixes such as `R32-01`, `R16-01`, `QF-01`, `SF-01`, `TP-01`, and `F-01`.
+- [ ] No production ID contains Japanese text, spaces, or display names.
+- [ ] Any ID change after publication includes a compatibility note for localStorage favorite team IDs.
+
 ## teams.json
 
 - [ ] `teams.json` includes every team needed by the current schedule.
