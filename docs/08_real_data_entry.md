@@ -9,6 +9,7 @@ This guide prepares the project for manual entry of real World Cup data. Do not 
 - Use Reuters and other reputable reporting only as secondary confirmation.
 - Do not use unofficial websites, Wikipedia, social media, screenshots, or copied spreadsheets as authoritative schedule sources.
 - Check `docs/10_official_schedule_source.md` before entering official schedule data.
+- Check `docs/11_data_id_design.md` before assigning production `teamId`, `groupId`, or `matchId` values.
 - Update master data before schedule data.
 - Keep IDs stable once they are used by matches or user preferences.
 - Run validation before opening a pull request.
@@ -16,18 +17,20 @@ This guide prepares the project for manual entry of real World Cup data. Do not 
 
 ## Recommended Order
 
-1. Update `public/data/teams.json`.
-2. Update `public/data/groups.json`.
-3. Update `public/data/matches.json`.
-4. Update results later by changing only `played`, `homeScore`, and `awayScore`.
+1. Confirm source rules in `docs/10_official_schedule_source.md`.
+2. Confirm ID rules in `docs/11_data_id_design.md`.
+3. Update `public/data/teams.json`.
+4. Update `public/data/groups.json`.
+5. Update `public/data/matches.json`.
+6. Update results later by changing only `played`, `homeScore`, and `awayScore`.
 
 ## teams.json
 
-Use one object per team.
+Use one object per team. Production `teamId` values should follow `docs/11_data_id_design.md` and use FIFA/IOC-style three-letter uppercase codes when possible.
 
 ```json
 {
-  "id": "A1",
+  "id": "JPN",
   "name": "Japan",
   "group": "A",
   "fifaRank": 18
@@ -38,17 +41,18 @@ Rules:
 
 - `id` must be unique.
 - `id` is the value used by `groups.json` and `matches.json`.
+- `id` should not contain Japanese names, spaces, or display names.
 - `group` should match the group where the team is listed in `groups.json`.
 - Keep the file as valid JSON without comments.
 
 ## groups.json
 
-Use one object per group.
+Use one object per group. Production `groupId` values should be uppercase letters such as `A`, `B`, and `C`.
 
 ```json
 {
   "id": "A",
-  "teamIds": ["A1", "A2", "A3", "A4"]
+  "teamIds": ["JPN", "ARG", "BRA", "FRA"]
 }
 ```
 
@@ -60,13 +64,13 @@ Rules:
 
 ## matches.json
 
-Use one object per match.
+Use one object per match. Production `matchId` values should follow `docs/11_data_id_design.md`, such as `G-A-01` for group-stage matches and `R16-01` / `QF-01` / `F-01` for knockout matches.
 
 ```json
 {
-  "id": "A-1",
-  "homeTeamId": "A1",
-  "awayTeamId": "A2",
+  "id": "G-A-01",
+  "homeTeamId": "JPN",
+  "awayTeamId": "ARG",
   "homeScore": null,
   "awayScore": null,
   "played": false,
