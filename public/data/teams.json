@@ -1,10 +1,61 @@
 [
-  { "id": "A1", "name": "Qatar", "group": "A", "fifaRank": 50 },
-  { "id": "A2", "name": "Ecuador", "group": "A", "fifaRank": 44 },
-  { "id": "A3", "name": "Senegal", "group": "A", "fifaRank": 18 },
-  { "id": "A4", "name": "Netherlands", "group": "A", "fifaRank": 8 },
-  { "id": "B1", "name": "England", "group": "B", "fifaRank": 5 },
-  { "id": "B2", "name": "USA", "group": "B", "fifaRank": 16 },
-  { "id": "B3", "name": "Iran", "group": "B", "fifaRank": 20 },
-  { "id": "B4", "name": "Wales", "group": "B", "fifaRank": 19 }
+  { "id": "MEX", "name": "Mexico", "group": "A", "fifaRank": 0 },
+  { "id": "RSA", "name": "South Africa", "group": "A", "fifaRank": 0 },
+  { "id": "KOR", "name": "South Korea", "group": "A", "fifaRank": 0 },
+  { "id": "CZE", "name": "Czechia", "group": "A", "fifaRank": 0 },
+
+  { "id": "CAN", "name": "Canada", "group": "B", "fifaRank": 0 },
+  { "id": "BIH", "name": "Bosnia and Herzegovina", "group": "B", "fifaRank": 0 },
+  { "id": "QAT", "name": "Qatar", "group": "B", "fifaRank": 0 },
+  { "id": "SUI", "name": "Switzerland", "group": "B", "fifaRank": 0 },
+
+  { "id": "BRA", "name": "Brazil", "group": "C", "fifaRank": 0 },
+  { "id": "MAR", "name": "Morocco", "group": "C", "fifaRank": 0 },
+  { "id": "HAI", "name": "Haiti", "group": "C", "fifaRank": 0 },
+  { "id": "SCO", "name": "Scotland", "group": "C", "fifaRank": 0 },
+
+  { "id": "USA", "name": "United States", "group": "D", "fifaRank": 0 },
+  { "id": "PAR", "name": "Paraguay", "group": "D", "fifaRank": 0 },
+  { "id": "AUS", "name": "Australia", "group": "D", "fifaRank": 0 },
+  { "id": "TUR", "name": "Türkiye", "group": "D", "fifaRank": 0 },
+
+  { "id": "GER", "name": "Germany", "group": "E", "fifaRank": 0 },
+  { "id": "CUW", "name": "Curaçao", "group": "E", "fifaRank": 0 },
+  { "id": "CIV", "name": "Côte d'Ivoire", "group": "E", "fifaRank": 0 },
+  { "id": "ECU", "name": "Ecuador", "group": "E", "fifaRank": 0 },
+
+  { "id": "NED", "name": "Netherlands", "group": "F", "fifaRank": 0 },
+  { "id": "JPN", "name": "Japan", "group": "F", "fifaRank": 0 },
+  { "id": "SWE", "name": "Sweden", "group": "F", "fifaRank": 0 },
+  { "id": "TUN", "name": "Tunisia", "group": "F", "fifaRank": 0 },
+
+  { "id": "BEL", "name": "Belgium", "group": "G", "fifaRank": 0 },
+  { "id": "EGY", "name": "Egypt", "group": "G", "fifaRank": 0 },
+  { "id": "IRN", "name": "Iran", "group": "G", "fifaRank": 0 },
+  { "id": "NZL", "name": "New Zealand", "group": "G", "fifaRank": 0 },
+
+  { "id": "ESP", "name": "Spain", "group": "H", "fifaRank": 0 },
+  { "id": "CPV", "name": "Cape Verde", "group": "H", "fifaRank": 0 },
+  { "id": "KSA", "name": "Saudi Arabia", "group": "H", "fifaRank": 0 },
+  { "id": "URU", "name": "Uruguay", "group": "H", "fifaRank": 0 },
+
+  { "id": "FRA", "name": "France", "group": "I", "fifaRank": 0 },
+  { "id": "SEN", "name": "Senegal", "group": "I", "fifaRank": 0 },
+  { "id": "IRQ", "name": "Iraq", "group": "I", "fifaRank": 0 },
+  { "id": "NOR", "name": "Norway", "group": "I", "fifaRank": 0 },
+
+  { "id": "ARG", "name": "Argentina", "group": "J", "fifaRank": 0 },
+  { "id": "ALG", "name": "Algeria", "group": "J", "fifaRank": 0 },
+  { "id": "AUT", "name": "Austria", "group": "J", "fifaRank": 0 },
+  { "id": "JOR", "name": "Jordan", "group": "J", "fifaRank": 0 },
+
+  { "id": "POR", "name": "Portugal", "group": "K", "fifaRank": 0 },
+  { "id": "COD", "name": "DR Congo", "group": "K", "fifaRank": 0 },
+  { "id": "UZB", "name": "Uzbekistan", "group": "K", "fifaRank": 0 },
+  { "id": "COL", "name": "Colombia", "group": "K", "fifaRank": 0 },
+
+  { "id": "ENG", "name": "England", "group": "L", "fifaRank": 0 },
+  { "id": "CRO", "name": "Croatia", "group": "L", "fifaRank": 0 },
+  { "id": "GHA", "name": "Ghana", "group": "L", "fifaRank": 0 },
+  { "id": "PAN", "name": "Panama", "group": "L", "fifaRank": 0 }
 ]

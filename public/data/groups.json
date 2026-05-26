@@ -1,4 +1,14 @@
 [
-  { "id": "A", "teamIds": ["A1", "A2", "A3", "A4"] },
-  { "id": "B", "teamIds": ["B1", "B2", "B3", "B4"] }
+  { "id": "A", "teamIds": ["MEX", "RSA", "KOR", "CZE"] },
+  { "id": "B", "teamIds": ["CAN", "BIH", "QAT", "SUI"] },
+  { "id": "C", "teamIds": ["BRA", "MAR", "HAI", "SCO"] },
+  { "id": "D", "teamIds": ["USA", "PAR", "AUS", "TUR"] },
+  { "id": "E", "teamIds": ["GER", "CUW", "CIV", "ECU"] },
+  { "id": "F", "teamIds": ["NED", "JPN", "SWE", "TUN"] },
+  { "id": "G", "teamIds": ["BEL", "EGY", "IRN", "NZL"] },
+  { "id": "H", "teamIds": ["ESP", "CPV", "KSA", "URU"] },
+  { "id": "I", "teamIds": ["FRA", "SEN", "IRQ", "NOR"] },
+  { "id": "J", "teamIds": ["ARG", "ALG", "AUT", "JOR"] },
+  { "id": "K", "teamIds": ["POR", "COD", "UZB", "COL"] },
+  { "id": "L", "teamIds": ["ENG", "CRO", "GHA", "PAN"] }
 ]
