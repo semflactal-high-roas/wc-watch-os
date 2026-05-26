@@ -1,0 +1,10 @@
+[
+  {
+    "id": "A",
+    "teamIds": ["JPN", "ARG"]
+  },
+  {
+    "id": "B",
+    "teamIds": ["BRA", "USA"]
+  }
+]

@@ -21,6 +21,14 @@ Use this checklist before merging real data updates.
 - [ ] No production ID contains Japanese text, spaces, or display names.
 - [ ] Any ID change after publication includes a compatibility note for localStorage favorite team IDs.
 
+## Teams and Groups Entry Plan
+
+- [ ] `docs/12_teams_groups_entry_plan.md` was checked before replacing dummy team or group data.
+- [ ] No unconfirmed teams were added to app-loaded production JSON.
+- [ ] No unconfirmed group assignments were added to app-loaded production JSON.
+- [ ] `public/data/teams.production.template.json` and `public/data/groups.production.template.json` were treated as app non-loaded reference templates only.
+- [ ] Template files were not treated as official group assignments.
+
 ## teams.json
 
 - [ ] `teams.json` includes every team needed by the current schedule.
