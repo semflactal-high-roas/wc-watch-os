@@ -10,6 +10,7 @@ This guide prepares the project for manual entry of real World Cup data. Do not 
 - Do not use unofficial websites, Wikipedia, social media, screenshots, or copied spreadsheets as authoritative schedule sources.
 - Check `docs/10_official_schedule_source.md` before entering official schedule data.
 - Check `docs/11_data_id_design.md` before assigning production `teamId`, `groupId`, or `matchId` values.
+- Check `docs/12_teams_groups_entry_plan.md` before replacing dummy `teams.json` or `groups.json` data.
 - Update master data before schedule data.
 - Keep IDs stable once they are used by matches or user preferences.
 - Run validation before opening a pull request.
@@ -19,14 +20,15 @@ This guide prepares the project for manual entry of real World Cup data. Do not 
 
 1. Confirm source rules in `docs/10_official_schedule_source.md`.
 2. Confirm ID rules in `docs/11_data_id_design.md`.
-3. Update `public/data/teams.json`.
-4. Update `public/data/groups.json`.
-5. Update `public/data/matches.json`.
-6. Update results later by changing only `played`, `homeScore`, and `awayScore`.
+3. Confirm teams/groups entry rules in `docs/12_teams_groups_entry_plan.md`.
+4. Update `public/data/teams.json`.
+5. Update `public/data/groups.json`.
+6. Update `public/data/matches.json`.
+7. Update results later by changing only `played`, `homeScore`, and `awayScore`.
 
 ## teams.json
 
-Use one object per team. Production `teamId` values should follow `docs/11_data_id_design.md` and use FIFA/IOC-style three-letter uppercase codes when possible.
+Use one object per team. Production `teamId` values should follow `docs/11_data_id_design.md` and use FIFA/IOC-style three-letter uppercase codes when possible. See `docs/12_teams_groups_entry_plan.md` before replacing dummy team data.
 
 ```json
 {
@@ -44,10 +46,11 @@ Rules:
 - `id` should not contain Japanese names, spaces, or display names.
 - `group` should match the group where the team is listed in `groups.json`.
 - Keep the file as valid JSON without comments.
+- Do not enter unconfirmed teams or unconfirmed group assignments.
 
 ## groups.json
 
-Use one object per group. Production `groupId` values should be uppercase letters such as `A`, `B`, and `C`.
+Use one object per group. Production `groupId` values should be uppercase letters such as `A`, `B`, and `C`. See `docs/12_teams_groups_entry_plan.md` before replacing dummy group data.
 
 ```json
 {
@@ -61,6 +64,16 @@ Rules:
 - Every value in `teamIds` must exist in `teams.json`.
 - Keep team IDs grouped by their actual group.
 - If a team group changes, update both `teams.json` and `groups.json`.
+- Do not enter unconfirmed groups or placeholder qualifier slots in app-loaded production JSON.
+
+## Production Template Files
+
+These files are reference templates only and are not loaded by the app:
+
+- `public/data/teams.production.template.json`
+- `public/data/groups.production.template.json`
+
+They contain sample IDs and sample groups only. They are not official group assignments and are not checked by `npm run validate:data`.
 
 ## matches.json
 
