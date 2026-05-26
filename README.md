@@ -10,4 +10,6 @@ npm run validate:data
 npm run build
 ```
 
+実データ投入前に `docs/10_official_schedule_source.md` を確認し、FIFA公式日程を一次情報として扱ってください。
+
 実データ投入の手順は `docs/08_real_data_entry.md`、確認項目は `docs/09_data_entry_checklist.md` を参照してください。

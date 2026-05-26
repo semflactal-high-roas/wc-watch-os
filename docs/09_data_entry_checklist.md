@@ -2,6 +2,15 @@
 
 Use this checklist before merging real data updates.
 
+## Official Source
+
+- [ ] `docs/10_official_schedule_source.md` was checked before entering official schedule data.
+- [ ] FIFA official website was used as the primary schedule source.
+- [ ] Reuters or other reporting was used only as secondary confirmation if needed.
+- [ ] Unofficial websites, Wikipedia, social media, screenshots, and copied spreadsheets were not used as authoritative sources.
+- [ ] Source notes are recorded in the pull request or docs: `sourceName`, `sourceUrl`, `checkedAt`, `inputBy`, and `notes`.
+- [ ] Source metadata was not added to `public/data/matches.json`.
+
 ## teams.json
 
 - [ ] `teams.json` includes every team needed by the current schedule.
@@ -24,6 +33,7 @@ Use this checklist before merging real data updates.
 - [ ] Every match team ID exists in `teams.json`.
 - [ ] Every match has `date` in `YYYY-MM-DD` format.
 - [ ] Every match has `kickoffTimeJST` in `HH:mm` format.
+- [ ] Every `kickoffTimeJST` value is stored in Japan time.
 - [ ] Every match has a valid `stage`.
 - [ ] Every group stage match has `groupId`.
 - [ ] Group stage `groupId` matches both teams' group.
