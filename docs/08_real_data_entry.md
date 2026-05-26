@@ -5,6 +5,10 @@ This guide prepares the project for manual entry of real World Cup data. Do not 
 ## Basic Policy
 
 - Enter real data in small pull requests.
+- Treat FIFA's official website as the primary source of truth for official schedule data.
+- Use Reuters and other reputable reporting only as secondary confirmation.
+- Do not use unofficial websites, Wikipedia, social media, screenshots, or copied spreadsheets as authoritative schedule sources.
+- Check `docs/10_official_schedule_source.md` before entering official schedule data.
 - Update master data before schedule data.
 - Keep IDs stable once they are used by matches or user preferences.
 - Run validation before opening a pull request.
@@ -82,6 +86,7 @@ Rules:
 - `kickoffTimeJST` must be `HH:mm` in Japan time.
 - Group stage matches must include `groupId`.
 - Knockout stage matches do not need `groupId`.
+- Keep source metadata such as `sourceName`, `sourceUrl`, `checkedAt`, `inputBy`, and `notes` out of `matches.json`; record it in the pull request or docs instead.
 
 ## stage Values
 
@@ -94,6 +99,18 @@ Use only these values:
 - `semi_final`
 - `third_place`
 - `final`
+
+## Official Source Notes
+
+When entering official schedule data, record these in the pull request description or a docs update:
+
+- `sourceName`
+- `sourceUrl`
+- `checkedAt`
+- `inputBy`
+- `notes`
+
+Use `public/data/matches.official.template.json` as a reference shape for source-tracked input work. The app does not load that template.
 
 ## Result Updates
 
@@ -128,12 +145,13 @@ For result-only updates, change only these fields:
 1. Open the target file under `public/data`.
 2. Use GitHub's edit button.
 3. Keep the JSON valid and do not add comments.
-4. Commit changes to a new branch.
-5. Open a pull request.
-6. Confirm GitHub Actions Build passes.
-7. Merge after review.
-8. Confirm GitHub Pages Deploy passes.
-9. Open the public URL and check that no `データエラー` appears.
+4. Record official source notes in the pull request description.
+5. Commit changes to a new branch.
+6. Open a pull request.
+7. Confirm GitHub Actions Build passes.
+8. Merge after review.
+9. Confirm GitHub Pages Deploy passes.
+10. Open the public URL and check that no `データエラー` appears.
 
 ## Editing Locally
 
