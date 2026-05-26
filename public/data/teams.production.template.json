@@ -1,0 +1,26 @@
+[
+  {
+    "id": "JPN",
+    "name": "Japan",
+    "group": "A",
+    "fifaRank": 18
+  },
+  {
+    "id": "ARG",
+    "name": "Argentina",
+    "group": "A",
+    "fifaRank": 1
+  },
+  {
+    "id": "BRA",
+    "name": "Brazil",
+    "group": "B",
+    "fifaRank": 5
+  },
+  {
+    "id": "USA",
+    "name": "United States",
+    "group": "B",
+    "fifaRank": 16
+  }
+]
