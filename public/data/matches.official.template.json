@@ -1,0 +1,53 @@
+[
+  {
+    "id": "official-template-group-1",
+    "homeTeamId": "A1",
+    "awayTeamId": "A2",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-06-12",
+    "kickoffTimeJST": "04:00",
+    "groupId": "A",
+    "stage": "group",
+    "sourceName": "FIFA World Cup 2026 match schedule",
+    "sourceUrl": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/match-schedule-fixtures-results-teams-stadiums",
+    "checkedAt": "2026-05-26 10:00 JST",
+    "inputBy": "example-user",
+    "notes": "Dummy template row. Replace with official FIFA source details before using for real data entry."
+  },
+  {
+    "id": "official-template-group-2",
+    "homeTeamId": "B1",
+    "awayTeamId": "B2",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-06-13",
+    "kickoffTimeJST": "07:00",
+    "groupId": "B",
+    "stage": "group",
+    "sourceName": "FIFA World Cup 2026 match schedule",
+    "sourceUrl": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/match-schedule-fixtures-results-teams-stadiums",
+    "checkedAt": "2026-05-26 10:00 JST",
+    "inputBy": "example-user",
+    "notes": "Dummy template row for a group-stage match. Keep source metadata in docs or PR notes, not in matches.json."
+  },
+  {
+    "id": "official-template-final-1",
+    "homeTeamId": "TBD1",
+    "awayTeamId": "TBD2",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-20",
+    "kickoffTimeJST": "04:00",
+    "groupId": null,
+    "stage": "final",
+    "sourceName": "FIFA World Cup 2026 match schedule",
+    "sourceUrl": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/match-schedule-fixtures-results-teams-stadiums",
+    "checkedAt": "2026-05-26 10:00 JST",
+    "inputBy": "example-user",
+    "notes": "Dummy template row for a knockout-stage match. Omit groupId when copying app-facing fields into matches.json."
+  }
+]
