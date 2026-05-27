@@ -28,6 +28,17 @@ type HomeRanking = {
   isFallback: boolean;
 };
 
+type GroupOverview = {
+  groupId: string;
+  matches: MatchWithImportance[];
+  rows: {
+    team: Team;
+    standing: StandingRow | null;
+    rank: number | null;
+    remainingMatches: number;
+  }[];
+};
+
 const preferencesKey = 'wc-watch-os:userPreferences';
 
 const defaultPreferences: UserPreferences = {
@@ -149,6 +160,48 @@ const sortJapanMatches = (matches: MatchWithImportance[]): MatchWithImportance[]
   );
 };
 
+const sortGroupMatches = (matches: MatchWithImportance[]): MatchWithImportance[] => {
+  return [...matches].sort(
+    (a, b) =>
+      Number(a.played) - Number(b.played) ||
+      a.date.localeCompare(b.date) ||
+      a.kickoffTimeJST.localeCompare(b.kickoffTimeJST) ||
+      a.id.localeCompare(b.id),
+  );
+};
+
+const buildGroupOverview = (
+  groupId: string,
+  data: AppData,
+  standings: { groupId: string; rows: StandingRow[] }[],
+  rankedMatches: MatchWithImportance[],
+): GroupOverview | null => {
+  const group = data.groups.find((candidate) => candidate.id === groupId);
+  if (!group) return null;
+
+  const groupStanding = standings.find((candidate) => candidate.groupId === groupId);
+  const matches = sortGroupMatches(rankedMatches.filter((match) => match.groupId === groupId));
+  const rows = group.teamIds
+    .map((teamId) => {
+      const team = data.teams.find((candidate) => candidate.id === teamId);
+      if (!team) return null;
+
+      const rankIndex = groupStanding?.rows.findIndex((row) => row.teamId === teamId) ?? -1;
+      const standing = rankIndex >= 0 ? groupStanding?.rows[rankIndex] ?? null : null;
+      const remainingMatches = matches.filter((match) => !match.played && matchIncludesTeam(match, teamId)).length;
+
+      return {
+        team,
+        standing,
+        rank: rankIndex >= 0 ? rankIndex + 1 : null,
+        remainingMatches,
+      };
+    })
+    .filter((row): row is GroupOverview['rows'][number] => row !== null);
+
+  return { groupId, matches, rows };
+};
+
 function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string>('');
@@ -210,6 +263,11 @@ function App() {
     return sortJapanMatches(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId)));
   }, [data, rankedMatches]);
 
+  const groupFOverview = useMemo(() => {
+    if (!data) return null;
+    return buildGroupOverview('F', data, standings, rankedMatches);
+  }, [data, standings, rankedMatches]);
+
   const homeRanking = useMemo<HomeRanking>(() => {
     if (!data) return { matches: [], isFallback: false };
 
@@ -264,6 +322,7 @@ function App() {
             preferences={preferences}
             homeRanking={homeRanking}
             japanMatches={japanMatches}
+            groupFOverview={groupFOverview}
             qualificationSummaries={qualificationSummaries}
             standings={standings}
             thirdPlace={thirdPlace}
@@ -332,6 +391,7 @@ type HomeScreenProps = {
   preferences: UserPreferences;
   homeRanking: HomeRanking;
   japanMatches: MatchWithImportance[];
+  groupFOverview: GroupOverview | null;
   qualificationSummaries: QualificationSummary[];
   standings: { groupId: string; rows: StandingRow[] }[];
   thirdPlace: StandingRow[];
@@ -344,6 +404,7 @@ function HomeScreen({
   preferences,
   homeRanking,
   japanMatches,
+  groupFOverview,
   qualificationSummaries,
   standings,
   thirdPlace,
@@ -359,6 +420,10 @@ function HomeScreen({
       <QualificationStatusSection summaries={qualificationSummaries} />
 
       <JapanMatchesSection matches={japanMatches} teams={data.teams} onMatchSelect={onMatchSelect} />
+
+      {groupFOverview && (
+        <GroupOverviewSection overview={groupFOverview} teams={data.teams} highlightTeamId="JPN" onMatchSelect={onMatchSelect} />
+      )}
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
@@ -410,6 +475,76 @@ function JapanMatchesSection({ matches, teams, onMatchSelect }: JapanMatchesSect
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+type GroupOverviewSectionProps = {
+  overview: GroupOverview;
+  teams: Team[];
+  highlightTeamId: string;
+  onMatchSelect: (matchId: string) => void;
+};
+
+function GroupOverviewSection({ overview, teams, highlightTeamId, onMatchSelect }: GroupOverviewSectionProps) {
+  return (
+    <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold">Group {overview.groupId} 日本の組</h2>
+        <p className="text-sm leading-6 text-slate-300">
+          日本代表の突破条件を見るには、日本戦だけでなく同組のNetherlands / Sweden / Tunisiaの試合結果も重要です。
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-cyan-300">チーム状況</h3>
+        <div className="space-y-2">
+          {overview.rows.map(({ team, standing, rank, remainingMatches }) => {
+            const isHighlighted = team.id === highlightTeamId;
+            return (
+              <div
+                key={team.id}
+                className={`rounded-xl px-3 py-3 ${
+                  isHighlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-800'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{team.name}</p>
+                    <p className="text-xs text-slate-400">{team.id}</p>
+                  </div>
+                  {isHighlighted && (
+                    <span className="shrink-0 rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">
+                      日本代表
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <Metric label="現在順位" value={rank ? `${rank}位` : '判定保留'} />
+                  <Metric label="勝点" value={standing ? `${standing.points}` : '-'} />
+                  <Metric label="得失点差" value={standing ? `${standing.goalDiff}` : '-'} />
+                  <Metric label="残り試合" value={`${remainingMatches}試合`} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-cyan-300">Group {overview.groupId} 試合一覧</h3>
+        {overview.matches.length === 0 ? (
+          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">
+            Group {overview.groupId} の試合データがまだ登録されていません
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {overview.matches.map((match) => (
+              <MatchCard key={match.id} match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
