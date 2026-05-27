@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { loadAppData } from './data/loader';
 import { filterTodayMatches, filterUpcomingMatches } from './logic/dateFilters';
 import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
+import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japanScenario';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { computeGroupStandings } from './logic/standings';
@@ -17,6 +18,7 @@ import type { AppData, Match, MatchStage, QualificationSummary, StandingRow, Tea
 
 type MainScreen = 'home' | 'schedule' | 'settings';
 type Screen = MainScreen | 'matchDetail';
+type GroupStanding = { groupId: string; rows: StandingRow[] };
 
 type UserPreferences = {
   mainFavoriteTeamId: string;
@@ -107,42 +109,35 @@ const teamName = (teams: Team[], teamId: string): string => {
   return teams.find((team) => team.id === teamId)?.name ?? teamId;
 };
 
-const formatRecord = (row: StandingRow): string => {
-  return `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
-};
-
-const formatMatchDateTime = (match: Match): string => {
-  return `${match.date} ${match.kickoffTimeJST} JST`;
-};
+const formatRecord = (row: StandingRow): string => `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
+const formatMatchDateTime = (match: Match): string => `${match.date} ${match.kickoffTimeJST} JST`;
 
 const formatMatchStage = (match: Match): string => {
   if (match.stage === 'group' && match.groupId) return `Group ${match.groupId}`;
   return stageLabels[match.stage];
 };
 
-const findJapanTeamId = (teams: Team[]): string => {
-  return teams.find((team) => team.name === 'Japan')?.id ?? '';
-};
+const findJapanTeamId = (teams: Team[]): string => teams.find((team) => team.name === 'Japan')?.id ?? 'JPN';
+const matchIncludesTeam = (match: Match, teamId: string): boolean => match.homeTeamId === teamId || match.awayTeamId === teamId;
+const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.group ?? '';
 
 const getTrackedTeamIds = (teams: Team[], preferences: UserPreferences): string[] => {
   const ids = [findJapanTeamId(teams), preferences.mainFavoriteTeamId, ...preferences.selectedTeamIds].filter(Boolean);
   return [...new Set(ids)];
 };
 
-const matchIncludesTeam = (match: Match, teamId: string): boolean => {
-  return match.homeTeamId === teamId || match.awayTeamId === teamId;
-};
-
-const teamGroup = (teams: Team[], teamId: string): string => {
-  return teams.find((team) => team.id === teamId)?.group ?? '';
+const sortMatchesByDate = <T extends Match>(matches: T[]): T[] => {
+  return [...matches].sort(
+    (a, b) =>
+      Number(a.played) - Number(b.played) ||
+      a.date.localeCompare(b.date) ||
+      a.kickoffTimeJST.localeCompare(b.kickoffTimeJST) ||
+      a.id.localeCompare(b.id),
+  );
 };
 
 const isSameGroupAsTrackedTeam = (match: Match, teams: Team[], trackedTeamIds: string[]): boolean => {
-  const matchGroups = new Set([
-    match.groupId,
-    teamGroup(teams, match.homeTeamId),
-    teamGroup(teams, match.awayTeamId),
-  ].filter(Boolean));
+  const matchGroups = new Set([match.groupId, teamGroup(teams, match.homeTeamId), teamGroup(teams, match.awayTeamId)].filter(Boolean));
 
   return trackedTeamIds.some((teamId) => {
     const group = teamGroup(teams, teamId);
@@ -150,37 +145,17 @@ const isSameGroupAsTrackedTeam = (match: Match, teams: Team[], trackedTeamIds: s
   });
 };
 
-const sortJapanMatches = (matches: MatchWithImportance[]): MatchWithImportance[] => {
-  return [...matches].sort(
-    (a, b) =>
-      Number(a.played) - Number(b.played) ||
-      a.date.localeCompare(b.date) ||
-      a.kickoffTimeJST.localeCompare(b.kickoffTimeJST) ||
-      a.id.localeCompare(b.id),
-  );
-};
-
-const sortGroupMatches = (matches: MatchWithImportance[]): MatchWithImportance[] => {
-  return [...matches].sort(
-    (a, b) =>
-      Number(a.played) - Number(b.played) ||
-      a.date.localeCompare(b.date) ||
-      a.kickoffTimeJST.localeCompare(b.kickoffTimeJST) ||
-      a.id.localeCompare(b.id),
-  );
-};
-
 const buildGroupOverview = (
   groupId: string,
   data: AppData,
-  standings: { groupId: string; rows: StandingRow[] }[],
+  standings: GroupStanding[],
   rankedMatches: MatchWithImportance[],
 ): GroupOverview | null => {
   const group = data.groups.find((candidate) => candidate.id === groupId);
   if (!group) return null;
 
   const groupStanding = standings.find((candidate) => candidate.groupId === groupId);
-  const matches = sortGroupMatches(rankedMatches.filter((match) => match.groupId === groupId));
+  const matches = sortMatchesByDate(rankedMatches.filter((match) => match.groupId === groupId));
   const rows = group.teamIds
     .map((teamId) => {
       const team = data.teams.find((candidate) => candidate.id === teamId);
@@ -190,12 +165,7 @@ const buildGroupOverview = (
       const standing = rankIndex >= 0 ? groupStanding?.rows[rankIndex] ?? null : null;
       const remainingMatches = matches.filter((match) => !match.played && matchIncludesTeam(match, teamId)).length;
 
-      return {
-        team,
-        standing,
-        rank: rankIndex >= 0 ? rankIndex + 1 : null,
-        remainingMatches,
-      };
+      return { team, standing, rank: rankIndex >= 0 ? rankIndex + 1 : null, remainingMatches };
     })
     .filter((row): row is GroupOverview['rows'][number] => row !== null);
 
@@ -219,7 +189,7 @@ function App() {
     window.localStorage.setItem(preferencesKey, JSON.stringify(preferences));
   }, [preferences]);
 
-  const standings = useMemo(() => {
+  const standings = useMemo<GroupStanding[]>(() => {
     if (!data) return [];
     return data.groups.map((group) => ({
       groupId: group.id,
@@ -230,25 +200,13 @@ function App() {
     }));
   }, [data]);
 
-  const thirdPlace = useMemo(() => {
-    const thirds: StandingRow[] = standings.flatMap((group) => {
-      const third = group.rows[2];
-      return third ? [third] : [];
-    });
+  const thirdPlace = useMemo(() => rankThirdPlaceTeams(standings.flatMap((group) => (group.rows[2] ? [group.rows[2]] : []))), [standings]);
 
-    return rankThirdPlaceTeams(thirds);
-  }, [standings]);
-
-  const trackedTeamIds = useMemo(() => {
-    if (!data) return [];
-    return getTrackedTeamIds(data.teams, preferences);
-  }, [data, preferences]);
+  const trackedTeamIds = useMemo(() => (data ? getTrackedTeamIds(data.teams, preferences) : []), [data, preferences]);
 
   const qualificationSummaries = useMemo(() => {
     if (!data) return [];
-    return trackedTeamIds.map((teamId) =>
-      getQualificationSummary(teamId, data.teams, data.groups, standings, data.matches, thirdPlace),
-    );
+    return trackedTeamIds.map((teamId) => getQualificationSummary(teamId, data.teams, data.groups, standings, data.matches, thirdPlace));
   }, [data, trackedTeamIds, standings, thirdPlace]);
 
   const rankedMatches = useMemo(() => {
@@ -259,24 +217,18 @@ function App() {
   const japanMatches = useMemo(() => {
     if (!data) return [];
     const japanTeamId = findJapanTeamId(data.teams);
-    if (!japanTeamId) return [];
-    return sortJapanMatches(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId)));
+    return sortMatchesByDate(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId)));
   }, [data, rankedMatches]);
 
-  const groupFOverview = useMemo(() => {
-    if (!data) return null;
-    return buildGroupOverview('F', data, standings, rankedMatches);
-  }, [data, standings, rankedMatches]);
+  const japanScenario = useMemo(() => (data ? getJapanScenarioSummary(data, standings, data.matches) : null), [data, standings]);
+  const groupFOverview = useMemo(() => (data ? buildGroupOverview('F', data, standings, rankedMatches) : null), [data, standings, rankedMatches]);
 
   const homeRanking = useMemo<HomeRanking>(() => {
     if (!data) return { matches: [], isFallback: false };
 
     const todayMatches = filterTodayMatches(data.matches, today);
     if (todayMatches.length > 0) {
-      return {
-        matches: rankMatchesByImportance(todayMatches, data.teams, data.groups, preferences, today),
-        isFallback: false,
-      };
+      return { matches: rankMatchesByImportance(todayMatches, data.teams, data.groups, preferences, today), isFallback: false };
     }
 
     const upcomingMatches = filterUpcomingMatches(data.matches, today);
@@ -284,15 +236,10 @@ function App() {
     if (!nextMatch) return { matches: rankedMatches.slice(0, 5), isFallback: true };
 
     const nextDateMatches = upcomingMatches.filter((match) => match.date === nextMatch.date);
-    return {
-      matches: rankMatchesByImportance(nextDateMatches, data.teams, data.groups, preferences, today),
-      isFallback: true,
-    };
+    return { matches: rankMatchesByImportance(nextDateMatches, data.teams, data.groups, preferences, today), isFallback: true };
   }, [data, preferences, rankedMatches, today]);
 
-  const selectedMatch = useMemo(() => {
-    return rankedMatches.find((match) => match.id === selectedMatchId) ?? null;
-  }, [rankedMatches, selectedMatchId]);
+  const selectedMatch = useMemo(() => rankedMatches.find((match) => match.id === selectedMatchId) ?? null, [rankedMatches, selectedMatchId]);
 
   const openMatchDetail = (matchId: string, returnScreen: MainScreen) => {
     setSelectedMatchId(matchId);
@@ -322,6 +269,7 @@ function App() {
             preferences={preferences}
             homeRanking={homeRanking}
             japanMatches={japanMatches}
+            japanScenario={japanScenario}
             groupFOverview={groupFOverview}
             qualificationSummaries={qualificationSummaries}
             standings={standings}
@@ -331,16 +279,9 @@ function App() {
           />
         )}
         {activeScreen === 'schedule' && (
-          <ScheduleScreen
-            data={data}
-            rankedMatches={rankedMatches}
-            standings={standings}
-            onMatchSelect={(matchId) => openMatchDetail(matchId, 'schedule')}
-          />
+          <ScheduleScreen data={data} rankedMatches={rankedMatches} standings={standings} onMatchSelect={(matchId) => openMatchDetail(matchId, 'schedule')} />
         )}
-        {activeScreen === 'settings' && (
-          <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} />
-        )}
+        {activeScreen === 'settings' && <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} />}
         {activeScreen === 'matchDetail' && selectedMatch && (
           <MatchDetailScreen
             match={selectedMatch}
@@ -364,21 +305,16 @@ function App() {
       {activeScreen !== 'matchDetail' && (
         <nav className="fixed inset-x-0 bottom-0 border-t border-slate-800 bg-slate-950/95 px-3 py-2 backdrop-blur">
           <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
-            {tabs.map((tab) => {
-              const isActive = activeScreen === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveScreen(tab.id)}
-                  className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
-                    isActive ? 'bg-cyan-300 text-slate-950' : 'bg-slate-900 text-slate-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveScreen(tab.id)}
+                className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${activeScreen === tab.id ? 'bg-cyan-300 text-slate-950' : 'bg-slate-900 text-slate-300'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </nav>
       )}
@@ -391,9 +327,10 @@ type HomeScreenProps = {
   preferences: UserPreferences;
   homeRanking: HomeRanking;
   japanMatches: MatchWithImportance[];
+  japanScenario: JapanScenarioSummary | null;
   groupFOverview: GroupOverview | null;
   qualificationSummaries: QualificationSummary[];
-  standings: { groupId: string; rows: StandingRow[] }[];
+  standings: GroupStanding[];
   thirdPlace: StandingRow[];
   trackedTeamIds: string[];
   onMatchSelect: (matchId: string) => void;
@@ -404,6 +341,7 @@ function HomeScreen({
   preferences,
   homeRanking,
   japanMatches,
+  japanScenario,
   groupFOverview,
   qualificationSummaries,
   standings,
@@ -411,29 +349,20 @@ function HomeScreen({
   trackedTeamIds,
   onMatchSelect,
 }: HomeScreenProps) {
-  const favoriteName = preferences.mainFavoriteTeamId
-    ? teamName(data.teams, preferences.mainFavoriteTeamId)
-    : '未設定';
+  const favoriteName = preferences.mainFavoriteTeamId ? teamName(data.teams, preferences.mainFavoriteTeamId) : '未設定';
 
   return (
     <div className="space-y-5">
       <QualificationStatusSection summaries={qualificationSummaries} />
-
       <JapanMatchesSection matches={japanMatches} teams={data.teams} onMatchSelect={onMatchSelect} />
-
-      {groupFOverview && (
-        <GroupOverviewSection overview={groupFOverview} teams={data.teams} highlightTeamId="JPN" onMatchSelect={onMatchSelect} />
-      )}
+      {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
+      {groupFOverview && <GroupOverviewSection overview={groupFOverview} teams={data.teams} highlightTeamId="JPN" onMatchSelect={onMatchSelect} />}
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
-        <p className="text-sm leading-6 text-slate-300">
-          推し国や日本、同じグループへの影響、日付、ステージを点数化して、見る優先度が高い順に並べます。
-        </p>
+        <p className="text-sm leading-6 text-slate-300">推し国や日本、同じグループへの影響、日付、ステージを点数化して、見る優先度が高い順に並べます。</p>
         {homeRanking.isFallback && (
-          <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
-            今日の対象試合がないため、直近の注目試合を表示しています。
-          </p>
+          <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">今日の対象試合がないため、直近の注目試合を表示しています。</p>
         )}
         <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm text-slate-300">メイン推し国: {favoriteName}</p>
         <div className="space-y-3">
@@ -459,15 +388,10 @@ function JapanMatchesSection({ matches, teams, onMatchSelect }: JapanMatchesSect
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">日本代表の試合</h2>
-        <p className="text-sm leading-6 text-slate-300">
-          推し国設定に関係なく、日本代表の試合を固定表示します。
-        </p>
+        <p className="text-sm leading-6 text-slate-300">推し国設定に関係なく、日本代表の試合を固定表示します。</p>
       </div>
-
       {matches.length === 0 ? (
-        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">
-          日本代表の試合データがまだ登録されていません
-        </p>
+        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">日本代表の試合データがまだ登録されていません</p>
       ) : (
         <div className="space-y-3">
           {matches.map((match) => (
@@ -475,6 +399,73 @@ function JapanMatchesSection({ matches, teams, onMatchSelect }: JapanMatchesSect
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+type JapanScenarioSectionProps = {
+  scenario: JapanScenarioSummary;
+  teams: Team[];
+};
+
+function JapanScenarioSection({ scenario, teams }: JapanScenarioSectionProps) {
+  return (
+    <section className="space-y-4 rounded-2xl border border-cyan-300/30 bg-slate-900 p-4 shadow-lg">
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">Japan Scenario</p>
+        <h2 className="text-lg font-semibold">日本代表 突破シナリオ</h2>
+        <p className="text-sm leading-6 text-slate-300">現在順位・残り試合・次戦・同組状況から、MVP版の見通しを表示します。</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <Metric label="現在順位" value={scenario.rank ? `${scenario.rank}位` : '判定保留'} />
+        <Metric label="勝点" value={scenario.points ?? '-'} />
+        <Metric label="得失点差" value={scenario.goalDiff ?? '-'} />
+        <Metric label="残り試合" value={`${scenario.remainingMatches}試合`} />
+        <Metric label="次の日本戦" value={scenario.nextOpponentName ? `${scenario.nextOpponentName}戦` : '未登録'} />
+        <Metric label="次戦キックオフ" value={scenario.nextMatch ? `${formatMatchDateTime(scenario.nextMatch)}` : '未登録'} />
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-cyan-300">同組ライバル</h3>
+        <div className="flex flex-wrap gap-2">
+          {scenario.rivals.map((team) => (
+            <span key={team.id} className="rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200">
+              {team.name}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-cyan-300">シナリオメッセージ</h3>
+        {scenario.messages.map((message) => (
+          <p key={message} className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-slate-200">
+            {message}
+          </p>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-cyan-300">見るべき同組試合</h3>
+        {scenario.watchGroupMatches.length === 0 ? (
+          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">日本が出ない未実施のGroup F試合はありません。</p>
+        ) : (
+          <div className="space-y-2">
+            {scenario.watchGroupMatches.map((match) => (
+              <div key={match.id} className="rounded-xl bg-slate-800 px-3 py-3">
+                <p className="text-sm font-semibold">
+                  {teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">{formatMatchDateTime(match)}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-300">日本と同組の勝点配分に影響します。</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">MVP版では詳細タイブレーク・直接対決・フェアプレーポイント等は未反映です。</p>
     </section>
   );
 }
@@ -491,9 +482,7 @@ function GroupOverviewSection({ overview, teams, highlightTeamId, onMatchSelect 
     <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">Group {overview.groupId} 日本の組</h2>
-        <p className="text-sm leading-6 text-slate-300">
-          日本代表の突破条件を見るには、日本戦だけでなく同組のNetherlands / Sweden / Tunisiaの試合結果も重要です。
-        </p>
+        <p className="text-sm leading-6 text-slate-300">日本代表の突破条件を見るには、日本戦だけでなく同組のNetherlands / Sweden / Tunisiaの試合結果も重要です。</p>
       </div>
 
       <div className="space-y-2">
@@ -502,27 +491,18 @@ function GroupOverviewSection({ overview, teams, highlightTeamId, onMatchSelect 
           {overview.rows.map(({ team, standing, rank, remainingMatches }) => {
             const isHighlighted = team.id === highlightTeamId;
             return (
-              <div
-                key={team.id}
-                className={`rounded-xl px-3 py-3 ${
-                  isHighlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-800'
-                }`}
-              >
+              <div key={team.id} className={`rounded-xl px-3 py-3 ${isHighlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-800'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{team.name}</p>
                     <p className="text-xs text-slate-400">{team.id}</p>
                   </div>
-                  {isHighlighted && (
-                    <span className="shrink-0 rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">
-                      日本代表
-                    </span>
-                  )}
+                  {isHighlighted && <span className="shrink-0 rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">日本代表</span>}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                   <Metric label="現在順位" value={rank ? `${rank}位` : '判定保留'} />
-                  <Metric label="勝点" value={standing ? `${standing.points}` : '-'} />
-                  <Metric label="得失点差" value={standing ? `${standing.goalDiff}` : '-'} />
+                  <Metric label="勝点" value={standing ? standing.points : '-'} />
+                  <Metric label="得失点差" value={standing ? standing.goalDiff : '-'} />
                   <Metric label="残り試合" value={`${remainingMatches}試合`} />
                 </div>
               </div>
@@ -533,40 +513,27 @@ function GroupOverviewSection({ overview, teams, highlightTeamId, onMatchSelect 
 
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-cyan-300">Group {overview.groupId} 試合一覧</h3>
-        {overview.matches.length === 0 ? (
-          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">
-            Group {overview.groupId} の試合データがまだ登録されていません
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {overview.matches.map((match) => (
-              <MatchCard key={match.id} match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
-            ))}
-          </div>
-        )}
+        <div className="space-y-3">
+          {overview.matches.map((match) => (
+            <MatchCard key={match.id} match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-type QualificationStatusSectionProps = {
-  summaries: QualificationSummary[];
-};
+type QualificationStatusSectionProps = { summaries: QualificationSummary[] };
 
 function QualificationStatusSection({ summaries }: QualificationStatusSectionProps) {
   return (
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">突破条件カード</h2>
-        <p className="text-sm leading-6 text-slate-300">
-          日本代表・メイン推し国・選択中の推し国について、現在順位と残り試合からMVP版の見通しを表示します。
-        </p>
+        <p className="text-sm leading-6 text-slate-300">日本代表・メイン推し国・選択中の推し国について、現在順位と残り試合からMVP版の見通しを表示します。</p>
       </div>
-
       {summaries.length === 0 ? (
-        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">
-          対象チームが未設定です。Settingsで推し国を選ぶと表示されます。
-        </p>
+        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">対象チームが未設定です。Settingsで推し国を選ぶと表示されます。</p>
       ) : (
         <div className="space-y-3">
           {summaries.map((summary) => (
@@ -574,58 +541,40 @@ function QualificationStatusSection({ summaries }: QualificationStatusSectionPro
           ))}
         </div>
       )}
-
-      <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">
-        MVP版では詳細タイブレーク・直接対決・フェアプレーポイント・抽選等は未反映です。
-      </p>
+      <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">MVP版では詳細タイブレーク・直接対決・フェアプレーポイント・抽選等は未反映です。</p>
     </section>
   );
 }
 
-type QualificationCardProps = {
-  summary: QualificationSummary;
-};
+type QualificationCardProps = { summary: QualificationSummary };
 
 function QualificationCard({ summary }: QualificationCardProps) {
   const standing = summary.context?.standing;
   const rank = summary.context?.groupRank;
-  const remainingText = summary.context
-    ? summary.context.remainingMatches === 0
-      ? '全日程消化'
-      : `残り${summary.context.remainingMatches}試合`
-    : '残り試合不明';
+  const remainingText = summary.context ? (summary.context.remainingMatches === 0 ? '全日程消化' : `残り${summary.context.remainingMatches}試合`) : '残り試合不明';
 
   return (
     <article className="space-y-3 rounded-xl bg-slate-800 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold">{summary.teamName}</p>
-          <p className="text-xs text-slate-400">
-            {summary.context?.groupId ? `Group ${summary.context.groupId}` : 'Group unknown'}
-          </p>
+          <p className="text-xs text-slate-400">{summary.context?.groupId ? `Group ${summary.context.groupId}` : 'Group unknown'}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${statusStyles[summary.status]}`}>
-          {summary.statusLabel}
-        </span>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${statusStyles[summary.status]}`}>{summary.statusLabel}</span>
       </div>
-
       <div className="grid grid-cols-2 gap-2 text-sm">
         <Metric label="現在順位" value={rank ? `${rank}位` : '判定保留'} />
-        <Metric label="勝点" value={standing ? `${standing.points}` : '-'} />
-        <Metric label="得失点差" value={standing ? `${standing.goalDiff}` : '-'} />
+        <Metric label="勝点" value={standing ? standing.points : '-'} />
+        <Metric label="得失点差" value={standing ? standing.goalDiff : '-'} />
         <Metric label="残り試合" value={remainingText} />
         {summary.thirdPlaceRank && <Metric label="3位ランキング" value={`${summary.thirdPlaceRank}位`} />}
       </div>
-
       <p className="text-sm leading-6 text-slate-300">{summary.summary}</p>
     </article>
   );
 }
 
-type MetricProps = {
-  label: string;
-  value: string;
-};
+type MetricProps = { label: string; value: string | number };
 
 function Metric({ label, value }: MetricProps) {
   return (
@@ -639,7 +588,7 @@ function Metric({ label, value }: MetricProps) {
 type ScheduleScreenProps = {
   data: AppData;
   rankedMatches: MatchWithImportance[];
-  standings: { groupId: string; rows: StandingRow[] }[];
+  standings: GroupStanding[];
   onMatchSelect: (matchId: string) => void;
 };
 
@@ -652,17 +601,10 @@ function ScheduleScreen({ data, rankedMatches, standings, onMatchSelect }: Sched
         <h2 className="text-lg font-semibold">試合一覧</h2>
         <div className="space-y-3">
           {data.matches.map((match) => (
-            <MatchCard
-              key={match.id}
-              match={importanceByMatchId.get(match.id) ?? match}
-              teams={data.teams}
-              compact
-              onSelect={() => onMatchSelect(match.id)}
-            />
+            <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={data.teams} compact onSelect={() => onMatchSelect(match.id)} />
           ))}
         </div>
       </section>
-
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">グループ順位</h2>
         <div className="space-y-3">
@@ -689,15 +631,8 @@ type SettingsScreenProps = {
 };
 
 function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScreenProps) {
-  const setMainFavoriteTeamId = (mainFavoriteTeamId: string) => {
-    onPreferencesChange({ ...preferences, mainFavoriteTeamId });
-  };
-
   const toggleSelectedTeamId = (teamId: string, selected: boolean) => {
-    const selectedTeamIds = selected
-      ? [...new Set([...preferences.selectedTeamIds, teamId])]
-      : preferences.selectedTeamIds.filter((selectedTeamId) => selectedTeamId !== teamId);
-
+    const selectedTeamIds = selected ? [...new Set([...preferences.selectedTeamIds, teamId])] : preferences.selectedTeamIds.filter((selectedTeamId) => selectedTeamId !== teamId);
     onPreferencesChange({ ...preferences, selectedTeamIds });
   };
 
@@ -707,23 +642,19 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScre
         <h2 className="text-lg font-semibold">Settings</h2>
         <p className="text-sm leading-6 text-slate-300">推し国の設定はこの端末のブラウザに保存されます。</p>
       </div>
-
       <label className="block space-y-2">
         <span className="text-sm font-semibold text-slate-200">メイン推し国</span>
         <select
           value={preferences.mainFavoriteTeamId}
-          onChange={(event) => setMainFavoriteTeamId(event.currentTarget.value)}
+          onChange={(event) => onPreferencesChange({ ...preferences, mainFavoriteTeamId: event.currentTarget.value })}
           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-base text-slate-50 outline-none focus:border-cyan-300"
         >
           <option value="">未設定</option>
           {data.teams.map((team) => (
-            <option key={team.id} value={team.id}>
-              {team.name}
-            </option>
+            <option key={team.id} value={team.id}>{team.name}</option>
           ))}
         </select>
       </label>
-
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-slate-200">気になる国</h3>
         <div className="grid gap-2">
@@ -755,36 +686,19 @@ type MatchCardProps = {
   onSelect?: () => void;
 };
 
-const hasImportance = (match: Match | MatchWithImportance): match is MatchWithImportance => {
-  return 'importanceScore' in match;
-};
+const hasImportance = (match: Match | MatchWithImportance): match is MatchWithImportance => 'importanceScore' in match;
 
 function MatchCard({ match, teams, compact = false, showRank = false, onSelect }: MatchCardProps) {
   const importance = hasImportance(match) ? match : null;
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={!onSelect}
-      className={`w-full rounded-xl bg-slate-800 p-3 text-left ${onSelect ? 'transition hover:bg-slate-700' : 'cursor-default'}`}
-    >
+    <button type="button" onClick={onSelect} disabled={!onSelect} className={`w-full rounded-xl bg-slate-800 p-3 text-left ${onSelect ? 'transition hover:bg-slate-700' : 'cursor-default'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            {showRank && importance && (
-              <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">
-                #{importance.importanceRank}
-              </span>
-            )}
-            {importance && (
-              <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-cyan-300">
-                重要度 {importance.importanceLabel}
-              </span>
-            )}
-            {importance && !compact && (
-              <span className="text-xs font-semibold text-slate-400">{importance.importanceScore}点</span>
-            )}
+            {showRank && importance && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">#{importance.importanceRank}</span>}
+            {importance && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-cyan-300">重要度 {importance.importanceLabel}</span>}
+            {importance && !compact && <span className="text-xs font-semibold text-slate-400">{importance.importanceScore}点</span>}
           </div>
           <p className="text-xs font-semibold text-slate-400">{formatMatchDateTime(match)}</p>
           <p className="mb-2 text-xs text-slate-400">{formatMatchStage(match)}</p>
@@ -792,11 +706,7 @@ function MatchCard({ match, teams, compact = false, showRank = false, onSelect }
           <p className="truncate text-sm font-semibold">{teamName(teams, match.awayTeamId)}</p>
           {importance && !compact && (
             <div className="mt-3 flex flex-wrap gap-2">
-              {importance.reasonTags.map((tag) => (
-                <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">
-                  {tag}
-                </span>
-              ))}
+              {importance.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}
             </div>
           )}
         </div>
@@ -821,9 +731,7 @@ type MatchDetailScreenProps = {
 function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnScreen, onBack }: MatchDetailScreenProps) {
   const japanTeamId = findJapanTeamId(teams);
   const mainFavoriteName = preferences.mainFavoriteTeamId ? teamName(teams, preferences.mainFavoriteTeamId) : '';
-  const selectedTeamNames = preferences.selectedTeamIds
-    .filter((teamId) => matchIncludesTeam(match, teamId))
-    .map((teamId) => teamName(teams, teamId));
+  const selectedTeamNames = preferences.selectedTeamIds.filter((teamId) => matchIncludesTeam(match, teamId)).map((teamId) => teamName(teams, teamId));
   const viewingPoints = getViewingPoints(match, teams, preferences, trackedTeamIds);
   const impactItems = getImpactItems(match);
   const backLabel = returnScreen === 'schedule' ? 'Scheduleに戻る' : 'Homeに戻る';
@@ -839,18 +747,12 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
 
   return (
     <div className="space-y-5">
-      <button type="button" onClick={onBack} className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-cyan-300">
-        {backLabel}
-      </button>
-
+      <button type="button" onClick={onBack} className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-cyan-300">{backLabel}</button>
       <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">Match Detail</p>
-          <h2 className="text-2xl font-bold leading-tight">
-            {teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}
-          </h2>
+          <h2 className="text-2xl font-bold leading-tight">{teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}</h2>
         </div>
-
         <div className="grid grid-cols-2 gap-2 text-sm">
           <Metric label="日付" value={match.date} />
           <Metric label="Kickoff" value={`${match.kickoffTimeJST} JST`} />
@@ -859,54 +761,25 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
           <Metric label="スコア" value={scoreLabel(match)} />
           <Metric label="重要度" value={`${match.importanceLabel} / ${match.importanceScore}点`} />
         </div>
-
-        <button
-          type="button"
-          onClick={handleDownloadIcs}
-          className="w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
-        >
-          ICSをダウンロード
-        </button>
-        <p className="text-xs leading-5 text-slate-400">
-          端末やブラウザによっては、ダウンロード後にカレンダーアプリで開く操作が必要です。
-        </p>
-
+        <button type="button" onClick={handleDownloadIcs} className="w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200">ICSをダウンロード</button>
+        <p className="text-xs leading-5 text-slate-400">端末やブラウザによっては、ダウンロード後にカレンダーアプリで開く操作が必要です。</p>
         <div className="flex flex-wrap gap-2">
-          {match.reasonTags.map((tag) => (
-            <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">
-              {tag}
-            </span>
-          ))}
+          {match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}
         </div>
       </section>
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h3 className="text-lg font-semibold">関係性</h3>
         <div className="grid gap-2 text-sm">
-          <Metric
-            label="日本代表との関係"
-            value={japanTeamId ? (matchIncludesTeam(match, japanTeamId) ? '日本代表が関係する試合' : '直接関係なし') : '日本代表データなし'}
-          />
-          <Metric
-            label="メイン推し国との関係"
-            value={preferences.mainFavoriteTeamId ? (matchIncludesTeam(match, preferences.mainFavoriteTeamId) ? `${mainFavoriteName} が関係` : '直接関係なし') : '未設定'}
-          />
-          <Metric
-            label="選択中の推し国との関係"
-            value={selectedTeamNames.length > 0 ? selectedTeamNames.join(' / ') : '直接関係なし'}
-          />
+          <Metric label="日本代表との関係" value={japanTeamId ? (matchIncludesTeam(match, japanTeamId) ? '日本代表が関係する試合' : '直接関係なし') : '日本代表データなし'} />
+          <Metric label="メイン推し国との関係" value={preferences.mainFavoriteTeamId ? (matchIncludesTeam(match, preferences.mainFavoriteTeamId) ? `${mainFavoriteName} が関係` : '直接関係なし') : '未設定'} />
+          <Metric label="選択中の推し国との関係" value={selectedTeamNames.length > 0 ? selectedTeamNames.join(' / ') : '直接関係なし'} />
         </div>
       </section>
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h3 className="text-lg font-semibold">観戦ポイント</h3>
-        <ul className="space-y-2">
-          {viewingPoints.map((point) => (
-            <li key={point} className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-slate-200">
-              {point}
-            </li>
-          ))}
-        </ul>
+        <ul className="space-y-2">{viewingPoints.map((point) => <li key={point} className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-slate-200">{point}</li>)}</ul>
       </section>
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
@@ -924,25 +797,14 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
   );
 }
 
-const getViewingPoints = (
-  match: MatchWithImportance,
-  teams: Team[],
-  preferences: UserPreferences,
-  trackedTeamIds: string[],
-): string[] => {
+const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences: UserPreferences, trackedTeamIds: string[]): string[] => {
   const points: string[] = [];
   const japanTeamId = findJapanTeamId(teams);
 
   if (japanTeamId && matchIncludesTeam(match, japanTeamId)) points.push('日本代表が関係する試合です。');
-  if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) {
-    points.push('メイン推し国が関係する試合です。');
-  }
-  if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) {
-    points.push('選択中の推し国が関係する試合です。');
-  }
-  if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) {
-    points.push('推し国と同組のため、順位に影響する可能性があります。');
-  }
+  if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) points.push('メイン推し国が関係する試合です。');
+  if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) points.push('選択中の推し国が関係する試合です。');
+  if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('推し国と同組のため、順位に影響する可能性があります。');
   if (match.stage === 'group') points.push('3位通過ラインに関わる可能性があります。');
   if (match.played) points.push('消化済みの試合です。現在の順位表・3位通過ラインに結果が反映されています。');
   if (points.length === 0) points.push('今後のステージや他会場結果を見るうえで参考になる試合です。');
@@ -952,12 +814,7 @@ const getViewingPoints = (
 
 const getImpactItems = (match: Match): { label: string; text: string }[] => {
   if (match.played) {
-    return [
-      {
-        label: '終了済み',
-        text: 'この試合は終了済みです。現在の順位表・3位通過ラインに結果が反映されています。',
-      },
-    ];
+    return [{ label: '終了済み', text: 'この試合は終了済みです。現在の順位表・3位通過ラインに結果が反映されています。' }];
   }
 
   return [
@@ -968,7 +825,7 @@ const getImpactItems = (match: Match): { label: string; text: string }[] => {
 };
 
 type StandingsCardsProps = {
-  standings: { groupId: string; rows: StandingRow[] }[];
+  standings: GroupStanding[];
   thirdPlace: StandingRow[];
   teams: Team[];
   trackedTeamIds: string[];
@@ -983,14 +840,11 @@ function StandingsCards({ standings, thirdPlace, teams, trackedTeamIds }: Standi
           <div key={group.groupId} className="rounded-xl bg-slate-800 p-3">
             <h3 className="mb-2 text-sm font-semibold text-cyan-300">Group {group.groupId}</h3>
             <div className="space-y-2">
-              {group.rows.map((row, index) => (
-                <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} compact />
-              ))}
+              {group.rows.map((row, index) => <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} compact />)}
             </div>
           </div>
         ))}
       </div>
-
       <ThirdPlaceLineSection thirdPlace={thirdPlace} teams={teams} trackedTeamIds={trackedTeamIds} />
     </section>
   );
@@ -1012,19 +866,16 @@ function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: ThirdPlace
     <div className="space-y-3 rounded-xl bg-slate-800 p-3">
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-cyan-300">3位通過ライン</h3>
-        <p className="text-sm leading-6 text-slate-300">
-          MVP版では3位ランキング上位8チームを通過圏として、8位を現在の通過ラインとして表示します。
-        </p>
+        <p className="text-sm leading-6 text-slate-300">MVP版では3位ランキング上位8チームを通過圏として、8位を現在の通過ラインとして表示します。</p>
       </div>
-
       <div className="rounded-xl border border-cyan-300/30 bg-slate-900 p-3">
         <p className="text-xs font-semibold text-slate-400">現在の8位ライン</p>
         <p className="mt-1 text-base font-semibold">{lineTeamName}</p>
         {line.lineTeam ? (
           <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-            <Metric label="勝点" value={`${line.lineTeam.points}`} />
-            <Metric label="得失点差" value={`${line.lineTeam.goalDiff}`} />
-            <Metric label="総得点" value={`${line.lineTeam.goalsFor}`} />
+            <Metric label="勝点" value={line.lineTeam.points} />
+            <Metric label="得失点差" value={line.lineTeam.goalDiff} />
+            <Metric label="総得点" value={line.lineTeam.goalsFor} />
           </div>
         ) : (
           <p className="mt-2 text-sm text-slate-400">3位チーム数がまだ不足しています。</p>
@@ -1036,38 +887,23 @@ function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: ThirdPlace
             : ' / 9位との差は未算出'}
         </p>
       </div>
-
       {trackedSummaries.length > 0 && (
         <div className="space-y-2">
           {trackedSummaries.map((summary) => (
             <div key={summary.teamId} className="rounded-xl bg-slate-900 px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="truncate text-sm font-semibold">{summary.teamName}</p>
-                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[summary.status]}`}>
-                  {summary.statusLabel}
-                </span>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[summary.status]}`}>{summary.statusLabel}</span>
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-400">{summary.summary}</p>
             </div>
           ))}
         </div>
       )}
-
       <div className="space-y-2">
-        {thirdPlace.map((row, index) => (
-          <ThirdPlaceRowCard
-            key={row.teamId}
-            row={row}
-            rank={index + 1}
-            teams={teams}
-            highlighted={trackedTeamIds.includes(row.teamId)}
-          />
-        ))}
+        {thirdPlace.map((row, index) => <ThirdPlaceRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} highlighted={trackedTeamIds.includes(row.teamId)} />)}
       </div>
-
-      <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">
-        MVP版では詳細タイブレーク・直接対決・フェアプレーポイント等は未反映です。
-      </p>
+      <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">MVP版では詳細タイブレーク・直接対決・フェアプレーポイント等は未反映です。</p>
     </div>
   );
 }
@@ -1087,14 +923,10 @@ function ThirdPlaceRowCard({ row, rank, teams, highlighted }: ThirdPlaceRowCardP
     <div className={`rounded-lg px-3 py-2 ${highlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-900'}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">
-            {rank}. {teamName(teams, row.teamId)}
-          </p>
+          <p className="truncate text-sm font-semibold">{rank}. {teamName(teams, row.teamId)}</p>
           <p className="text-xs text-slate-400">勝点 {row.points} / GD {row.goalDiff} / 得点 {row.goalsFor}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[status]}`}>
-          {label}
-        </span>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[status]}`}>{label}</span>
       </div>
     </div>
   );
@@ -1111,9 +943,7 @@ function StandingRowCard({ row, rank, teams, compact = false }: StandingRowCardP
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-900 px-3 py-2">
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold">
-          {rank}. {teamName(teams, row.teamId)}
-        </p>
+        <p className="truncate text-sm font-semibold">{rank}. {teamName(teams, row.teamId)}</p>
         {!compact && <p className="text-xs text-slate-400">{formatRecord(row)}</p>}
       </div>
       <p className="shrink-0 text-right text-xs text-slate-300">
