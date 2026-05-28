@@ -29,6 +29,13 @@ Use this checklist before merging real data updates.
 - [ ] `public/data/teams.production.template.json` and `public/data/groups.production.template.json` were treated as app non-loaded reference templates only.
 - [ ] Template files were not treated as official group assignments.
 
+## Match Schedule Entry Plan
+
+- [ ] `docs/13_match_schedule_entry_plan.md` was checked before entering official match schedules.
+- [ ] Official group-stage schedules are entered in the planned group batches, not as one large 104-match update.
+- [ ] Knockout-stage schedules are deferred until participating teams are confirmed or official bracket information is clear.
+- [ ] JST conversion notes are recorded in the pull request description.
+
 ## teams.json
 
 - [ ] `teams.json` includes every team needed by the current schedule.
@@ -45,6 +52,9 @@ Use this checklist before merging real data updates.
 
 ## matches.json
 
+- [ ] Every target group in the pull request has all 6 group-stage matches.
+- [ ] Target group match IDs use `G-{groupId}-01` through `G-{groupId}-06`.
+- [ ] Match numbering follows the official schedule order for each target group.
 - [ ] Every match has a unique `id`.
 - [ ] Every match has `homeTeamId` and `awayTeamId`.
 - [ ] No match has the same `homeTeamId` and `awayTeamId`.
@@ -52,6 +62,7 @@ Use this checklist before merging real data updates.
 - [ ] Every match has `date` in `YYYY-MM-DD` format.
 - [ ] Every match has `kickoffTimeJST` in `HH:mm` format.
 - [ ] Every `kickoffTimeJST` value is stored in Japan time.
+- [ ] Japan-time date changes are reflected in `date`.
 - [ ] Every match has a valid `stage`.
 - [ ] Every group stage match has `groupId`.
 - [ ] Group stage `groupId` matches both teams' group.
