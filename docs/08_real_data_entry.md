@@ -11,6 +11,7 @@ This guide prepares the project for manual entry of real World Cup data. Do not 
 - Check `docs/10_official_schedule_source.md` before entering official schedule data.
 - Check `docs/11_data_id_design.md` before assigning production `teamId`, `groupId`, or `matchId` values.
 - Check `docs/12_teams_groups_entry_plan.md` before replacing dummy `teams.json` or `groups.json` data.
+- Check `docs/13_match_schedule_entry_plan.md` before entering official match schedules into `matches.json`.
 - Update master data before schedule data.
 - Keep IDs stable once they are used by matches or user preferences.
 - Run validation before opening a pull request.
@@ -21,10 +22,11 @@ This guide prepares the project for manual entry of real World Cup data. Do not 
 1. Confirm source rules in `docs/10_official_schedule_source.md`.
 2. Confirm ID rules in `docs/11_data_id_design.md`.
 3. Confirm teams/groups entry rules in `docs/12_teams_groups_entry_plan.md`.
-4. Update `public/data/teams.json`.
-5. Update `public/data/groups.json`.
-6. Update `public/data/matches.json`.
-7. Update results later by changing only `played`, `homeScore`, and `awayScore`.
+4. Confirm match schedule split-entry rules in `docs/13_match_schedule_entry_plan.md`.
+5. Update `public/data/teams.json`.
+6. Update `public/data/groups.json`.
+7. Update `public/data/matches.json` in the planned group batches.
+8. Update results later by changing only `played`, `homeScore`, and `awayScore`.
 
 ## teams.json
 
@@ -77,7 +79,7 @@ They contain sample IDs and sample groups only. They are not official group assi
 
 ## matches.json
 
-Use one object per match. Production `matchId` values should follow `docs/11_data_id_design.md`, such as `G-A-01` for group-stage matches and `R16-01` / `QF-01` / `F-01` for knockout matches.
+Use one object per match. Production `matchId` values should follow `docs/11_data_id_design.md`, such as `G-A-01` for group-stage matches and `R16-01` / `QF-01` / `F-01` for knockout matches. Enter official group-stage schedules in the batches defined in `docs/13_match_schedule_entry_plan.md`.
 
 ```json
 {
@@ -104,6 +106,7 @@ Rules:
 - Group stage matches must include `groupId`.
 - Knockout stage matches do not need `groupId`.
 - Keep source metadata such as `sourceName`, `sourceUrl`, `checkedAt`, `inputBy`, and `notes` out of `matches.json`; record it in the pull request or docs instead.
+- Record JST conversion notes in the pull request when entering official schedule data.
 
 ## stage Values
 
