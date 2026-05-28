@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { loadAppData } from './data/loader';
 import { filterTodayMatches, filterUpcomingMatches } from './logic/dateFilters';
 import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
+import { getJapanMatchImpactItems } from './logic/japanMatchImpact';
 import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japanScenario';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
@@ -42,6 +43,7 @@ type GroupOverview = {
 };
 
 const preferencesKey = 'wc-watch-os:userPreferences';
+const japanTeamId = 'JPN';
 
 const defaultPreferences: UserPreferences = {
   mainFavoriteTeamId: '',
@@ -105,10 +107,7 @@ const scoreLabel = (match: Match): string => {
   return `${match.homeScore} - ${match.awayScore}`;
 };
 
-const teamName = (teams: Team[], teamId: string): string => {
-  return teams.find((team) => team.id === teamId)?.name ?? teamId;
-};
-
+const teamName = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.name ?? teamId;
 const formatRecord = (row: StandingRow): string => `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
 const formatMatchDateTime = (match: Match): string => `${match.date} ${match.kickoffTimeJST} JST`;
 
@@ -117,12 +116,11 @@ const formatMatchStage = (match: Match): string => {
   return stageLabels[match.stage];
 };
 
-const findJapanTeamId = (teams: Team[]): string => teams.find((team) => team.name === 'Japan')?.id ?? 'JPN';
 const matchIncludesTeam = (match: Match, teamId: string): boolean => match.homeTeamId === teamId || match.awayTeamId === teamId;
 const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.group ?? '';
 
 const getTrackedTeamIds = (teams: Team[], preferences: UserPreferences): string[] => {
-  const ids = [findJapanTeamId(teams), preferences.mainFavoriteTeamId, ...preferences.selectedTeamIds].filter(Boolean);
+  const ids = [japanTeamId, preferences.mainFavoriteTeamId, ...preferences.selectedTeamIds].filter((teamId) => teams.some((team) => team.id === teamId));
   return [...new Set(ids)];
 };
 
@@ -138,7 +136,6 @@ const sortMatchesByDate = <T extends Match>(matches: T[]): T[] => {
 
 const isSameGroupAsTrackedTeam = (match: Match, teams: Team[], trackedTeamIds: string[]): boolean => {
   const matchGroups = new Set([match.groupId, teamGroup(teams, match.homeTeamId), teamGroup(teams, match.awayTeamId)].filter(Boolean));
-
   return trackedTeamIds.some((teamId) => {
     const group = teamGroup(teams, teamId);
     return group ? matchGroups.has(group) : false;
@@ -201,7 +198,6 @@ function App() {
   }, [data]);
 
   const thirdPlace = useMemo(() => rankThirdPlaceTeams(standings.flatMap((group) => (group.rows[2] ? [group.rows[2]] : []))), [standings]);
-
   const trackedTeamIds = useMemo(() => (data ? getTrackedTeamIds(data.teams, preferences) : []), [data, preferences]);
 
   const qualificationSummaries = useMemo(() => {
@@ -214,12 +210,7 @@ function App() {
     return rankMatchesByImportance(data.matches, data.teams, data.groups, preferences, today);
   }, [data, preferences, today]);
 
-  const japanMatches = useMemo(() => {
-    if (!data) return [];
-    const japanTeamId = findJapanTeamId(data.teams);
-    return sortMatchesByDate(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId)));
-  }, [data, rankedMatches]);
-
+  const japanMatches = useMemo(() => sortMatchesByDate(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId))), [rankedMatches]);
   const japanScenario = useMemo(() => (data ? getJapanScenarioSummary(data, standings, data.matches) : null), [data, standings]);
   const groupFOverview = useMemo(() => (data ? buildGroupOverview('F', data, standings, rankedMatches) : null), [data, standings, rankedMatches]);
 
@@ -356,7 +347,7 @@ function HomeScreen({
       <QualificationStatusSection summaries={qualificationSummaries} />
       <JapanMatchesSection matches={japanMatches} teams={data.teams} onMatchSelect={onMatchSelect} />
       {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
-      {groupFOverview && <GroupOverviewSection overview={groupFOverview} teams={data.teams} highlightTeamId="JPN" onMatchSelect={onMatchSelect} />}
+      {groupFOverview && <GroupOverviewSection overview={groupFOverview} teams={data.teams} highlightTeamId={japanTeamId} onMatchSelect={onMatchSelect} />}
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
@@ -395,11 +386,36 @@ function JapanMatchesSection({ matches, teams, onMatchSelect }: JapanMatchesSect
       ) : (
         <div className="space-y-3">
           {matches.map((match) => (
-            <MatchCard key={match.id} match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
+            <div key={match.id} className="space-y-2">
+              <MatchCard match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
+              <JapanMatchImpactSummary match={match} teams={teams} />
+            </div>
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+type JapanMatchImpactSummaryProps = {
+  match: Match;
+  teams: Team[];
+};
+
+function JapanMatchImpactSummary({ match, teams }: JapanMatchImpactSummaryProps) {
+  const items = getJapanMatchImpactItems(match, teams);
+  if (items.length === 0) return null;
+
+  return (
+    <div className="space-y-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2">
+      <p className="text-xs font-semibold text-cyan-300">勝敗時インパクト</p>
+      {items.map((item) => (
+        <p key={item.label} className="text-xs leading-5 text-slate-300">
+          <span className="font-semibold text-slate-100">{item.label}：</span>
+          {item.text}
+        </p>
+      ))}
+    </div>
   );
 }
 
@@ -423,7 +439,7 @@ function JapanScenarioSection({ scenario, teams }: JapanScenarioSectionProps) {
         <Metric label="得失点差" value={scenario.goalDiff ?? '-'} />
         <Metric label="残り試合" value={`${scenario.remainingMatches}試合`} />
         <Metric label="次の日本戦" value={scenario.nextOpponentName ? `${scenario.nextOpponentName}戦` : '未登録'} />
-        <Metric label="次戦キックオフ" value={scenario.nextMatch ? `${formatMatchDateTime(scenario.nextMatch)}` : '未登録'} />
+        <Metric label="次戦キックオフ" value={scenario.nextMatch ? formatMatchDateTime(scenario.nextMatch) : '未登録'} />
       </div>
 
       <div className="space-y-2">
@@ -729,7 +745,6 @@ type MatchDetailScreenProps = {
 };
 
 function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnScreen, onBack }: MatchDetailScreenProps) {
-  const japanTeamId = findJapanTeamId(teams);
   const mainFavoriteName = preferences.mainFavoriteTeamId ? teamName(teams, preferences.mainFavoriteTeamId) : '';
   const selectedTeamNames = preferences.selectedTeamIds.filter((teamId) => matchIncludesTeam(match, teamId)).map((teamId) => teamName(teams, teamId));
   const viewingPoints = getViewingPoints(match, teams, preferences, trackedTeamIds);
@@ -771,7 +786,7 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h3 className="text-lg font-semibold">関係性</h3>
         <div className="grid gap-2 text-sm">
-          <Metric label="日本代表との関係" value={japanTeamId ? (matchIncludesTeam(match, japanTeamId) ? '日本代表が関係する試合' : '直接関係なし') : '日本代表データなし'} />
+          <Metric label="日本代表との関係" value={matchIncludesTeam(match, japanTeamId) ? '日本代表が関係する試合' : '直接関係なし'} />
           <Metric label="メイン推し国との関係" value={preferences.mainFavoriteTeamId ? (matchIncludesTeam(match, preferences.mainFavoriteTeamId) ? `${mainFavoriteName} が関係` : '直接関係なし') : '未設定'} />
           <Metric label="選択中の推し国との関係" value={selectedTeamNames.length > 0 ? selectedTeamNames.join(' / ') : '直接関係なし'} />
         </div>
@@ -799,9 +814,8 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
 
 const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences: UserPreferences, trackedTeamIds: string[]): string[] => {
   const points: string[] = [];
-  const japanTeamId = findJapanTeamId(teams);
 
-  if (japanTeamId && matchIncludesTeam(match, japanTeamId)) points.push('日本代表が関係する試合です。');
+  if (matchIncludesTeam(match, japanTeamId)) points.push('日本代表が関係する試合です。');
   if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) points.push('メイン推し国が関係する試合です。');
   if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) points.push('選択中の推し国が関係する試合です。');
   if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('推し国と同組のため、順位に影響する可能性があります。');
