@@ -67,6 +67,25 @@ For every schedule-entry pull request, confirm:
 - GitHub Pages deploy succeeds after merge.
 - The Schedule screen renders without a data error after deployment.
 
+## Full Group-Stage QA
+
+After Groups A-L are fully entered, `npm run validate:data` performs stricter group-stage QA. It checks that:
+
+- `groups.json` contains exactly Groups A-L.
+- Each group has exactly 4 unique teams.
+- Each team listed in a group exists in `teams.json`.
+- Each team's `teams.json` group matches the `groups.json` group.
+- `matches.json` contains exactly 72 `stage: "group"` matches.
+- Each group has exactly 6 group-stage matches.
+- Each group-stage match ID follows `G-{groupId}-01` through `G-{groupId}-06`.
+- Match ID group letters match `match.groupId`.
+- Each group-stage match uses teams from its own group.
+- Each 4-team group has a complete 6-card round robin.
+- Duplicate same-group fixture cards are rejected regardless of home/away order.
+- `date`, `kickoffTimeJST`, `played`, `homeScore`, and `awayScore` remain internally consistent.
+
+Run this QA after every schedule or result update, even if the update touches only one match.
+
 ## JST Conversion Rules
 
 All app schedule data must be stored in Japan time.
