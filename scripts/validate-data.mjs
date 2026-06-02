@@ -6,6 +6,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const dataDir = path.join(repoRoot, 'public', 'data');
 
+const expectedGroupIds = 'ABCDEFGHIJKL'.split('');
+const expectedGroupIdSet = new Set(expectedGroupIds);
+const expectedTeamsPerGroup = 4;
+const expectedMatchesPerGroup = 6;
+const expectedGroupStageMatches = expectedGroupIds.length * expectedMatchesPerGroup;
+
 const validStages = new Set([
   'group',
   'round_of_32',
@@ -18,6 +24,7 @@ const validStages = new Set([
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const kickoffTimePattern = /^\d{2}:\d{2}$/;
+const groupMatchIdPattern = /^G-([A-L])-0([1-6])$/;
 
 const readJson = async (fileName) => {
   const filePath = path.join(dataDir, fileName);
@@ -60,6 +67,9 @@ const findDuplicateIds = (ids) => {
 
 const formatId = (value) => (typeof value === 'string' && value.length > 0 ? value : '<missing id>');
 
+const fixtureKey = (teamIdA, teamIdB) => [teamIdA, teamIdB].sort().join('|');
+const formatFixture = (teamIdA, teamIdB) => [teamIdA, teamIdB].sort().join(' vs ');
+
 const validateTeams = (teams) => {
   const errors = [];
 
@@ -88,10 +98,28 @@ const validateTeams = (teams) => {
   return errors;
 };
 
-const validateGroups = (groups, teamIds) => {
+const validateGroups = (groups, teams) => {
   const errors = [];
 
   if (!Array.isArray(groups)) return ['groups.json: root value must be an array.'];
+
+  const teamById = new Map(teams.map((team) => [team.id, team]));
+  const groupById = new Map(groups.map((group) => [group?.id, group]));
+  const duplicateGroupIds = findDuplicateIds(groups.map((group) => group?.id).filter(Boolean));
+
+  duplicateGroupIds.forEach((groupId) => {
+    errors.push(`groups.json: group id "${groupId}" is duplicated.`);
+  });
+
+  if (groups.length !== expectedGroupIds.length) {
+    errors.push(`groups.json: must contain ${expectedGroupIds.length} groups A-L, found ${groups.length}.`);
+  }
+
+  expectedGroupIds.forEach((groupId) => {
+    if (!groupById.has(groupId)) {
+      errors.push(`groups.json: missing Group ${groupId}.`);
+    }
+  });
 
   groups.forEach((group, index) => {
     if (!group || typeof group !== 'object') {
@@ -99,20 +127,49 @@ const validateGroups = (groups, teamIds) => {
       return;
     }
 
+    const groupId = formatId(group.id);
+
     if (typeof group.id !== 'string' || group.id.length === 0) {
       errors.push(`groups.json: item ${index + 1} has missing id.`);
+    } else if (!expectedGroupIdSet.has(group.id)) {
+      errors.push(`groups.json: group "${group.id}" is invalid. Expected groupId A-L.`);
     }
 
     if (!Array.isArray(group.teamIds)) {
-      errors.push(`groups.json: group "${formatId(group.id)}" must have teamIds array.`);
+      errors.push(`groups.json: group "${groupId}" must have teamIds array.`);
       return;
     }
 
+    if (group.teamIds.length !== expectedTeamsPerGroup) {
+      errors.push(`Group ${groupId} must have ${expectedTeamsPerGroup} teamIds, found ${group.teamIds.length}.`);
+    }
+
+    const duplicateTeamIds = findDuplicateIds(group.teamIds);
+    duplicateTeamIds.forEach((teamId) => {
+      errors.push(`groups.json: group "${groupId}" has duplicate teamId "${teamId}".`);
+    });
+
     group.teamIds.forEach((teamId) => {
-      if (!teamIds.has(teamId)) {
-        errors.push(`groups.json: group "${formatId(group.id)}" includes unknown teamId "${teamId}".`);
+      const team = teamById.get(teamId);
+
+      if (!team) {
+        errors.push(`groups.json: group "${groupId}" includes unknown teamId "${teamId}".`);
+        return;
+      }
+
+      if (team.group !== group.id) {
+        errors.push(`groups.json: team "${teamId}" is listed in Group ${groupId} but teams.json group is "${team.group}".`);
       }
     });
+  });
+
+  teams.forEach((team) => {
+    if (!team?.id || !team?.group || !expectedGroupIdSet.has(team.group)) return;
+
+    const group = groupById.get(team.group);
+    if (group && Array.isArray(group.teamIds) && !group.teamIds.includes(team.id)) {
+      errors.push(`teams.json: team "${team.id}" has group "${team.group}" but is missing from groups.json Group ${team.group}.`);
+    }
   });
 
   return errors;
@@ -125,21 +182,91 @@ const validateMatchScores = (match) => {
   const hasAwayScore = typeof match.awayScore === 'number';
 
   if (match.played === true && (!hasHomeScore || !hasAwayScore)) {
-    errors.push(`matches.json: match "${matchId}" is played but homeScore / awayScore are not both numbers.`);
+    errors.push(`Match ${matchId} is played but homeScore / awayScore are not both numbers.`);
   }
 
-  if (match.played === false) {
-    const homeScoreIsValid = match.homeScore === null || hasHomeScore;
-    const awayScoreIsValid = match.awayScore === null || hasAwayScore;
-
-    if (!homeScoreIsValid || !awayScoreIsValid) {
-      errors.push(`matches.json: match "${matchId}" is not played but homeScore / awayScore must be numbers or null.`);
-    }
+  if (match.played === false && (match.homeScore !== null || match.awayScore !== null)) {
+    errors.push(`Match ${matchId} is not played, so homeScore / awayScore must both be null.`);
   }
 
   if (typeof match.played !== 'boolean') {
-    errors.push(`matches.json: match "${matchId}" has invalid played value. Use true or false.`);
+    errors.push(`Match ${matchId} has invalid played value. Use true or false.`);
   }
+
+  return errors;
+};
+
+const validateRoundRobinFixtures = (group, groupMatches) => {
+  const errors = [];
+  const groupId = formatId(group.id);
+
+  if (!Array.isArray(group.teamIds) || group.teamIds.length !== expectedTeamsPerGroup) {
+    return errors;
+  }
+
+  const expectedFixtures = new Map();
+  for (let i = 0; i < group.teamIds.length; i += 1) {
+    for (let j = i + 1; j < group.teamIds.length; j += 1) {
+      const homeTeamId = group.teamIds[i];
+      const awayTeamId = group.teamIds[j];
+      expectedFixtures.set(fixtureKey(homeTeamId, awayTeamId), formatFixture(homeTeamId, awayTeamId));
+    }
+  }
+
+  const seenFixtures = new Map();
+  groupMatches.forEach((match) => {
+    if (!group.teamIds.includes(match.homeTeamId) || !group.teamIds.includes(match.awayTeamId) || match.homeTeamId === match.awayTeamId) {
+      return;
+    }
+
+    const key = fixtureKey(match.homeTeamId, match.awayTeamId);
+    const label = formatFixture(match.homeTeamId, match.awayTeamId);
+
+    if (seenFixtures.has(key)) {
+      errors.push(`Duplicate fixture in Group ${groupId}: ${label}`);
+      return;
+    }
+
+    seenFixtures.set(key, match.id);
+  });
+
+  expectedFixtures.forEach((label, key) => {
+    if (!seenFixtures.has(key)) {
+      errors.push(`Missing fixture in Group ${groupId}: ${label}`);
+    }
+  });
+
+  return errors;
+};
+
+const validateGroupStageShape = (matches, groups) => {
+  const errors = [];
+  const groupMatches = matches.filter((match) => match?.stage === 'group');
+  const groupById = new Map(groups.map((group) => [group.id, group]));
+
+  if (groupMatches.length !== expectedGroupStageMatches) {
+    errors.push(`matches.json: stage "group" must have ${expectedGroupStageMatches} matches, found ${groupMatches.length}.`);
+  }
+
+  expectedGroupIds.forEach((groupId) => {
+    const matchesInGroup = groupMatches.filter((match) => match.groupId === groupId);
+
+    if (matchesInGroup.length !== expectedMatchesPerGroup) {
+      errors.push(`Group ${groupId} must have ${expectedMatchesPerGroup} group-stage matches, found ${matchesInGroup.length}.`);
+    }
+
+    for (let i = 1; i <= expectedMatchesPerGroup; i += 1) {
+      const expectedMatchId = `G-${groupId}-0${i}`;
+      if (!matchesInGroup.some((match) => match.id === expectedMatchId)) {
+        errors.push(`Group ${groupId} is missing matchId ${expectedMatchId}.`);
+      }
+    }
+
+    const group = groupById.get(groupId);
+    if (group) {
+      errors.push(...validateRoundRobinFixtures(group, matchesInGroup));
+    }
+  });
 
   return errors;
 };
@@ -174,35 +301,44 @@ const validateMatches = (matches, teams, groups) => {
     }
 
     if (!teamIds.has(match.homeTeamId)) {
-      errors.push(`matches.json: match "${matchId}" has unknown homeTeamId "${match.homeTeamId}".`);
+      errors.push(`Match ${matchId} has unknown homeTeamId: ${match.homeTeamId}`);
     }
 
     if (!teamIds.has(match.awayTeamId)) {
-      errors.push(`matches.json: match "${matchId}" has unknown awayTeamId "${match.awayTeamId}".`);
+      errors.push(`Match ${matchId} has unknown awayTeamId: ${match.awayTeamId}`);
     }
 
     if (match.homeTeamId === match.awayTeamId) {
-      errors.push(`matches.json: match "${matchId}" has the same homeTeamId and awayTeamId "${match.homeTeamId}".`);
+      errors.push(`Match ${matchId} has the same homeTeamId and awayTeamId: ${match.homeTeamId}`);
     }
 
     if (!isRealDate(match.date)) {
-      errors.push(`matches.json: match "${matchId}" has invalid date "${match.date}". Use YYYY-MM-DD.`);
+      errors.push(`Match ${matchId} has invalid date: ${match.date}`);
     }
 
     if (!isValidKickoffTime(match.kickoffTimeJST)) {
-      errors.push(`matches.json: match "${matchId}" has invalid kickoffTimeJST "${match.kickoffTimeJST}". Use HH:mm.`);
+      errors.push(`Match ${matchId} has invalid kickoffTimeJST: ${match.kickoffTimeJST}`);
     }
 
     if (!validStages.has(match.stage)) {
-      errors.push(`matches.json: match "${matchId}" has invalid stage "${match.stage}".`);
+      errors.push(`Match ${matchId} has invalid stage: ${match.stage}`);
     }
 
-    if (match.stage === 'group' && !match.groupId) {
-      errors.push(`matches.json: match "${matchId}" is group stage but groupId is missing.`);
+    if (match.stage === 'group') {
+      if (!match.groupId) {
+        errors.push(`Match ${matchId} is group stage but groupId is missing.`);
+      }
+
+      const matchIdParts = typeof match.id === 'string' ? match.id.match(groupMatchIdPattern) : null;
+      if (!matchIdParts) {
+        errors.push(`Match ${matchId} has invalid group-stage matchId. Expected G-{groupId}-01 through G-{groupId}-06.`);
+      } else if (match.groupId && matchIdParts[1] !== match.groupId) {
+        errors.push(`Match ${matchId} groupId mismatch: matchId says ${matchIdParts[1]} but groupId is ${match.groupId}.`);
+      }
     }
 
     if (match.groupId && !groupIds.has(match.groupId)) {
-      errors.push(`matches.json: match "${matchId}" has unknown groupId "${match.groupId}".`);
+      errors.push(`Match ${matchId} has unknown groupId: ${match.groupId}`);
     }
 
     if (match.stage === 'group' && match.groupId && groupIds.has(match.groupId)) {
@@ -211,28 +347,26 @@ const validateMatches = (matches, teams, groups) => {
       const awayTeamInGroup = group?.teamIds.includes(match.awayTeamId) ?? false;
 
       if (homeTeam && homeTeam.group !== match.groupId) {
-        errors.push(
-          `matches.json: match "${matchId}" groupId "${match.groupId}" conflicts with home team "${match.homeTeamId}" group "${homeTeam.group}".`,
-        );
+        errors.push(`Match ${matchId} has team ${match.homeTeamId} but ${match.homeTeamId} is in Group ${homeTeam.group}, not Group ${match.groupId}.`);
       }
 
       if (awayTeam && awayTeam.group !== match.groupId) {
-        errors.push(
-          `matches.json: match "${matchId}" groupId "${match.groupId}" conflicts with away team "${match.awayTeamId}" group "${awayTeam.group}".`,
-        );
+        errors.push(`Match ${matchId} has team ${match.awayTeamId} but ${match.awayTeamId} is in Group ${awayTeam.group}, not Group ${match.groupId}.`);
       }
 
       if (!homeTeamInGroup) {
-        errors.push(`matches.json: match "${matchId}" homeTeamId "${match.homeTeamId}" is not listed in groups.json group "${match.groupId}".`);
+        errors.push(`Match ${matchId} has team ${match.homeTeamId} but ${match.homeTeamId} is not in Group ${match.groupId}.`);
       }
 
       if (!awayTeamInGroup) {
-        errors.push(`matches.json: match "${matchId}" awayTeamId "${match.awayTeamId}" is not listed in groups.json group "${match.groupId}".`);
+        errors.push(`Match ${matchId} has team ${match.awayTeamId} but ${match.awayTeamId} is not in Group ${match.groupId}.`);
       }
     }
 
     errors.push(...validateMatchScores(match));
   });
+
+  errors.push(...validateGroupStageShape(matches, groups));
 
   return errors;
 };
@@ -240,12 +374,24 @@ const validateMatches = (matches, teams, groups) => {
 const validateAppData = ({ teams, groups, matches }) => {
   const safeTeams = Array.isArray(teams) ? teams : [];
   const safeGroups = Array.isArray(groups) ? groups : [];
-  const teamIds = new Set(safeTeams.map((team) => team.id));
 
   return [
     ...validateTeams(teams),
-    ...validateGroups(groups, teamIds),
+    ...validateGroups(groups, safeTeams),
     ...validateMatches(matches, safeTeams, safeGroups),
+  ];
+};
+
+const getValidationSummary = ({ teams, groups, matches }) => {
+  const groupMatches = Array.isArray(matches) ? matches.filter((match) => match?.stage === 'group') : [];
+
+  return [
+    `teams: ${Array.isArray(teams) ? teams.length : 0}`,
+    `groups: ${Array.isArray(groups) ? groups.length : 0}`,
+    `group-stage matches: ${groupMatches.length}`,
+    `each group has ${expectedTeamsPerGroup} teams`,
+    `each group has ${expectedMatchesPerGroup} matches`,
+    'all group fixtures are complete round-robin pairs',
   ];
 };
 
@@ -265,7 +411,8 @@ const main = async () => {
     return;
   }
 
-  console.log('Data validation passed: teams.json, groups.json, and matches.json are consistent.');
+  console.log('Data validation passed:');
+  getValidationSummary(data).forEach((line) => console.log(`* ${line}`));
 };
 
 main().catch((error) => {

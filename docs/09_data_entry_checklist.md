@@ -68,6 +68,21 @@ Use this checklist before merging real data updates.
 - [ ] Group stage `groupId` matches both teams' group.
 - [ ] Knockout stage matches omit `groupId` unless there is a specific display need.
 
+## Group Stage 72-Match QA
+
+After all group-stage matches are entered, `npm run validate:data` must confirm:
+
+- [ ] Groups A-L each have exactly 4 teams.
+- [ ] Groups A-L each have exactly 6 group-stage matches.
+- [ ] The group-stage total is exactly 72 matches.
+- [ ] Group-stage match IDs use `G-{groupId}-01` through `G-{groupId}-06`.
+- [ ] No match IDs are duplicated.
+- [ ] No same-group fixture cards are duplicated.
+- [ ] Each 4-team group has all 6 round-robin pairings.
+- [ ] Every group-stage team belongs to the match `groupId`.
+- [ ] `date` and `kickoffTimeJST` use strict JST-ready formats.
+- [ ] `played` and score fields are consistent.
+
 ## Results
 
 - [ ] Unplayed matches use `played: false`.
