@@ -60,13 +60,25 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 ## Schedule Screen
 
 - [ ] The `日程` tab can be opened from the bottom navigation.
+- [ ] Schedule filter buttons are visible above the match list.
+- [ ] The initial selected filter is `今日・次の試合`.
+- [ ] Filter buttons show counts for `今日・次の試合`, `日本代表`, `応援する国`, `日本と同じ組`, and `すべて`.
+- [ ] `今日・次の試合` shows today's matches when available, or the next match date when no today matches exist.
+- [ ] If today has no target matches, the message `今日の対象試合がないため、次の開催日の試合を表示しています。` is shown.
+- [ ] `日本代表` filters to the 3 Japan matches.
+- [ ] `応援する国` filters to matches involving the saved main supported team or selected teams.
+- [ ] If supported teams are not configured, `応援する国` shows `応援する国が未設定です。設定画面で応援する国を選ぶと、関連試合を絞り込めます。`.
+- [ ] `日本と同じ組` filters to the 6 Group F matches.
+- [ ] `すべて` shows all 72 group-stage matches.
+- [ ] The displayed match count updates after each filter change.
 - [ ] Group-stage matches are visible.
-- [ ] Groups A-L matches can be found in the schedule.
-- [ ] Group K and Group L matches are visible.
+- [ ] Groups A-L matches can be found when `すべて` is selected.
+- [ ] Group K and Group L matches are visible when `すべて` is selected.
 - [ ] Each match card shows date and kickoff time in `日本時間` wording.
 - [ ] Match cards show country names with flag emoji where available.
-- [ ] Tapping a match card opens Match Detail.
-- [ ] No `データエラー` is visible.
+- [ ] Tapping a filtered match card opens Match Detail.
+- [ ] The group standings section remains visible and is not filtered.
+- [ ] No `データエラー` is visible after changing filters.
 
 ## Settings Screen
 
@@ -106,6 +118,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 - [ ] At an iPhone-like width, no horizontal scrolling occurs.
 - [ ] Bottom navigation is tappable.
+- [ ] Schedule filter buttons wrap cleanly and remain tappable.
 - [ ] Recommendation card buttons are large enough to tap comfortably and do not conflict with each other.
 - [ ] Card text does not collapse or overflow badly.
 - [ ] Buttons are large enough to tap comfortably.

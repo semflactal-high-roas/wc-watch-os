@@ -7,6 +7,7 @@ import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japa
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { getMatchContextLabel, getRecommendationReason, getRecommendationTitle } from './logic/recommendationCopy';
+import { filterScheduleMatches, getScheduleFilterOptions, type ScheduleFilterId } from './logic/scheduleFilters';
 import { computeGroupStandings } from './logic/standings';
 import {
   getThirdPlaceLine,
@@ -279,7 +280,14 @@ function App() {
           />
         )}
         {activeScreen === 'schedule' && (
-          <ScheduleScreen data={data} rankedMatches={rankedMatches} standings={standings} onMatchSelect={(matchId) => openMatchDetail(matchId, 'schedule')} />
+          <ScheduleScreen
+            data={data}
+            preferences={preferences}
+            rankedMatches={rankedMatches}
+            standings={standings}
+            today={today}
+            onMatchSelect={(matchId) => openMatchDetail(matchId, 'schedule')}
+          />
         )}
         {activeScreen === 'settings' && <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} />}
         {activeScreen === 'matchDetail' && selectedMatch && (
@@ -690,23 +698,64 @@ function Metric({ label, value }: MetricProps) {
 
 type ScheduleScreenProps = {
   data: AppData;
+  preferences: UserPreferences;
   rankedMatches: MatchWithImportance[];
   standings: GroupStanding[];
+  today: Date;
   onMatchSelect: (matchId: string) => void;
 };
 
-function ScheduleScreen({ data, rankedMatches, standings, onMatchSelect }: ScheduleScreenProps) {
+function ScheduleScreen({ data, preferences, rankedMatches, standings, today, onMatchSelect }: ScheduleScreenProps) {
+  const [activeFilterId, setActiveFilterId] = useState<ScheduleFilterId>('today_next');
   const importanceByMatchId = new Map(rankedMatches.map((match) => [match.id, match]));
+  const filterOptions = useMemo(
+    () => getScheduleFilterOptions(data.matches, data.teams, preferences, today),
+    [data.matches, data.teams, preferences, today],
+  );
+  const filterResult = useMemo(
+    () => filterScheduleMatches(data.matches, data.teams, preferences, activeFilterId, today),
+    [data.matches, data.teams, preferences, activeFilterId, today],
+  );
+  const emptyMessage = filterResult.message ?? 'この条件に合う試合はありません';
 
   return (
     <div className="space-y-5">
-      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
-        <h2 className="text-lg font-semibold">試合一覧</h2>
-        <div className="space-y-3">
-          {data.matches.map((match) => (
-            <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={data.teams} compact onSelect={() => onMatchSelect(match.id)} />
-          ))}
+      <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold">試合一覧</h2>
+          <p className="text-sm leading-6 text-slate-300">見たい切り口を選んで、全72試合から必要な試合だけを絞り込めます。</p>
         </div>
+
+        <div className="flex flex-wrap gap-2">
+          {filterOptions.map((option) => {
+            const isActive = option.id === activeFilterId;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setActiveFilterId(option.id)}
+                className={`rounded-full px-3 py-2 text-xs font-bold transition ${isActive ? 'bg-cyan-300 text-slate-950' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}
+              >
+                {option.label} {option.count}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-slate-300">{filterResult.matches.length}試合を表示中</p>
+          {filterResult.message && <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-100">{filterResult.message}</p>}
+        </div>
+
+        {filterResult.matches.length === 0 ? (
+          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">{emptyMessage}</p>
+        ) : (
+          <div className="space-y-3">
+            {filterResult.matches.map((match) => (
+              <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={data.teams} compact onSelect={() => onMatchSelect(match.id)} />
+            ))}
+          </div>
+        )}
       </section>
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">グループ順位</h2>
