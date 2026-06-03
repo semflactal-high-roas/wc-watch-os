@@ -1,1 +1,10 @@
-{ "tournament": "FIFA World Cup", "season": 2022, "version": "mvp" }
+{
+  "tournament": "FIFA World Cup",
+  "season": 2026,
+  "version": "mvp",
+  "appName": "W杯 観戦ナビ",
+  "lastUpdated": "2026-06-03",
+  "scheduleSourceName": "FIFA公式",
+  "scheduleSourceUrl": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/match-schedule-fixtures-results-teams-stadiums",
+  "dataNote": "グループステージ日程はFIFA公式情報をもとに日本時間で表示しています。"
+}
