@@ -57,13 +57,13 @@ const tabs: { id: MainScreen; label: string }[] = [
 ];
 
 const stageLabels: Record<MatchStage, string> = {
-  group: 'Group',
-  round_of_32: 'Round of 32',
-  round_of_16: 'Round of 16',
-  quarter_final: 'Quarter-final',
-  semi_final: 'Semi-final',
-  third_place: 'Third-place match',
-  final: 'Final',
+  group: 'グループステージ',
+  round_of_32: 'ラウンド32',
+  round_of_16: 'ラウンド16',
+  quarter_final: '準々決勝',
+  semi_final: '準決勝',
+  third_place: '3位決定戦',
+  final: '決勝',
 };
 
 const statusStyles: Record<QualificationSummary['status'], string> = {
@@ -103,13 +103,20 @@ const readPreferences = (): UserPreferences => {
 };
 
 const scoreLabel = (match: Match): string => {
-  if (!match.played || match.homeScore === null || match.awayScore === null) return '未実施';
+  if (!match.played || match.homeScore === null || match.awayScore === null) return 'これから';
   return `${match.homeScore} - ${match.awayScore}`;
 };
 
-const teamName = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.name ?? teamId;
+const formatTeamName = (teams: Team[], teamId: string): string => {
+  const team = teams.find((candidate) => candidate.id === teamId);
+  if (!team) return teamId;
+  return team.flagEmoji ? `${team.name} ${team.flagEmoji}` : team.name;
+};
+
+const teamName = formatTeamName;
 const formatRecord = (row: StandingRow): string => `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
-const formatMatchDateTime = (match: Match): string => `${match.date} ${match.kickoffTimeJST} JST`;
+const formatMatchDateTime = (match: Match): string => `${match.date} ${match.kickoffTimeJST} 日本時間`;
+const matchStatusLabel = (match: Match): string => (match.played ? '終了' : 'これから');
 
 const formatMatchStage = (match: Match): string => {
   if (match.stage === 'group' && match.groupId) return `Group ${match.groupId}`;
@@ -251,7 +258,8 @@ function App() {
       <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-24 pt-5">
         <header className="mb-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">World Cup Viewing OS</p>
-          <h1 className="mt-1 text-2xl font-bold">今日見るべきW杯</h1>
+          <h1 className="mt-1 text-2xl font-bold">W杯 観戦ナビ</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-300">日本代表と応援する国の試合だけ、見る価値で整理</p>
         </header>
 
         {activeScreen === 'home' && (
@@ -344,18 +352,18 @@ function HomeScreen({
 
   return (
     <div className="space-y-5">
-      <QualificationStatusSection summaries={qualificationSummaries} />
+      <QualificationStatusSection summaries={qualificationSummaries} teams={data.teams} />
       <JapanMatchesSection matches={japanMatches} teams={data.teams} onMatchSelect={onMatchSelect} />
       {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
       {groupFOverview && <GroupOverviewSection overview={groupFOverview} teams={data.teams} highlightTeamId={japanTeamId} onMatchSelect={onMatchSelect} />}
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
-        <p className="text-sm leading-6 text-slate-300">推し国や日本、同じグループへの影響、日付、ステージを点数化して、見る優先度が高い順に並べます。</p>
+        <p className="text-sm leading-6 text-slate-300">応援する国や日本、同じグループへの影響、日付、ラウンドを点数化して、見る優先度が高い順に並べます。</p>
         {homeRanking.isFallback && (
           <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">今日の対象試合がないため、直近の注目試合を表示しています。</p>
         )}
-        <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm text-slate-300">メイン推し国: {favoriteName}</p>
+        <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm text-slate-300">メインで応援する国: {favoriteName}</p>
         <div className="space-y-3">
           {homeRanking.matches.slice(0, 5).map((match) => (
             <MatchCard key={match.id} match={match} teams={data.teams} showRank onSelect={() => onMatchSelect(match.id)} />
@@ -379,7 +387,7 @@ function JapanMatchesSection({ matches, teams, onMatchSelect }: JapanMatchesSect
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">日本代表の試合</h2>
-        <p className="text-sm leading-6 text-slate-300">推し国設定に関係なく、日本代表の試合を固定表示します。</p>
+        <p className="text-sm leading-6 text-slate-300">応援する国の設定に関係なく、日本代表の試合を固定表示します。</p>
       </div>
       {matches.length === 0 ? (
         <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">日本代表の試合データがまだ登録されていません</p>
@@ -438,7 +446,7 @@ function JapanScenarioSection({ scenario, teams }: JapanScenarioSectionProps) {
         <Metric label="勝点" value={scenario.points ?? '-'} />
         <Metric label="得失点差" value={scenario.goalDiff ?? '-'} />
         <Metric label="残り試合" value={`${scenario.remainingMatches}試合`} />
-        <Metric label="次の日本戦" value={scenario.nextOpponentName ? `${scenario.nextOpponentName}戦` : '未登録'} />
+        <Metric label="次の日本戦" value={scenario.nextMatch ? `${teamName(teams, scenario.nextMatch.homeTeamId === japanTeamId ? scenario.nextMatch.awayTeamId : scenario.nextMatch.homeTeamId)}戦` : '未登録'} />
         <Metric label="次戦キックオフ" value={scenario.nextMatch ? formatMatchDateTime(scenario.nextMatch) : '未登録'} />
       </div>
 
@@ -447,7 +455,7 @@ function JapanScenarioSection({ scenario, teams }: JapanScenarioSectionProps) {
         <div className="flex flex-wrap gap-2">
           {scenario.rivals.map((team) => (
             <span key={team.id} className="rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200">
-              {team.name}
+              {teamName(teams, team.id)}
             </span>
           ))}
         </div>
@@ -465,7 +473,7 @@ function JapanScenarioSection({ scenario, teams }: JapanScenarioSectionProps) {
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-cyan-300">見るべき同組試合</h3>
         {scenario.watchGroupMatches.length === 0 ? (
-          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">日本が出ない未実施のGroup F試合はありません。</p>
+          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">日本が出ないこれからのGroup F試合はありません。</p>
         ) : (
           <div className="space-y-2">
             {scenario.watchGroupMatches.map((match) => (
@@ -510,7 +518,7 @@ function GroupOverviewSection({ overview, teams, highlightTeamId, onMatchSelect 
               <div key={team.id} className={`rounded-xl px-3 py-3 ${isHighlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-800'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{team.name}</p>
+                    <p className="truncate text-sm font-semibold">{teamName(teams, team.id)}</p>
                     <p className="text-xs text-slate-400">{team.id}</p>
                   </div>
                   {isHighlighted && <span className="shrink-0 rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">日本代表</span>}
@@ -539,21 +547,24 @@ function GroupOverviewSection({ overview, teams, highlightTeamId, onMatchSelect 
   );
 }
 
-type QualificationStatusSectionProps = { summaries: QualificationSummary[] };
+type QualificationStatusSectionProps = {
+  summaries: QualificationSummary[];
+  teams: Team[];
+};
 
-function QualificationStatusSection({ summaries }: QualificationStatusSectionProps) {
+function QualificationStatusSection({ summaries, teams }: QualificationStatusSectionProps) {
   return (
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">突破条件カード</h2>
-        <p className="text-sm leading-6 text-slate-300">日本代表・メイン推し国・選択中の推し国について、現在順位と残り試合からMVP版の見通しを表示します。</p>
+        <p className="text-sm leading-6 text-slate-300">日本代表・メインで応援する国・応援中の国について、現在順位と残り試合からMVP版の見通しを表示します。</p>
       </div>
       {summaries.length === 0 ? (
-        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">対象チームが未設定です。Settingsで推し国を選ぶと表示されます。</p>
+        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">対象チームが未設定です。Settingsで応援する国を選ぶと表示されます。</p>
       ) : (
         <div className="space-y-3">
           {summaries.map((summary) => (
-            <QualificationCard key={summary.teamId} summary={summary} />
+            <QualificationCard key={summary.teamId} summary={summary} teams={teams} />
           ))}
         </div>
       )}
@@ -562,18 +573,21 @@ function QualificationStatusSection({ summaries }: QualificationStatusSectionPro
   );
 }
 
-type QualificationCardProps = { summary: QualificationSummary };
+type QualificationCardProps = {
+  summary: QualificationSummary;
+  teams: Team[];
+};
 
-function QualificationCard({ summary }: QualificationCardProps) {
+function QualificationCard({ summary, teams }: QualificationCardProps) {
   const standing = summary.context?.standing;
   const rank = summary.context?.groupRank;
-  const remainingText = summary.context ? (summary.context.remainingMatches === 0 ? '全日程消化' : `残り${summary.context.remainingMatches}試合`) : '残り試合不明';
+  const remainingText = summary.context ? (summary.context.remainingMatches === 0 ? '全日程終了' : `残り${summary.context.remainingMatches}試合`) : '残り試合不明';
 
   return (
     <article className="space-y-3 rounded-xl bg-slate-800 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold">{summary.teamName}</p>
+          <p className="truncate text-base font-semibold">{teamName(teams, summary.teamId)}</p>
           <p className="text-xs text-slate-400">{summary.context?.groupId ? `Group ${summary.context.groupId}` : 'Group unknown'}</p>
         </div>
         <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${statusStyles[summary.status]}`}>{summary.statusLabel}</span>
@@ -655,11 +669,11 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScre
   return (
     <section className="space-y-5 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Settings</h2>
-        <p className="text-sm leading-6 text-slate-300">推し国の設定はこの端末のブラウザに保存されます。</p>
+        <h2 className="text-lg font-semibold">応援する国の設定</h2>
+        <p className="text-sm leading-6 text-slate-300">応援する国の設定はこの端末のブラウザに保存されます。</p>
       </div>
       <label className="block space-y-2">
-        <span className="text-sm font-semibold text-slate-200">メイン推し国</span>
+        <span className="text-sm font-semibold text-slate-200">メインで応援する国</span>
         <select
           value={preferences.mainFavoriteTeamId}
           onChange={(event) => onPreferencesChange({ ...preferences, mainFavoriteTeamId: event.currentTarget.value })}
@@ -667,17 +681,17 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScre
         >
           <option value="">未設定</option>
           {data.teams.map((team) => (
-            <option key={team.id} value={team.id}>{team.name}</option>
+            <option key={team.id} value={team.id}>{teamName(data.teams, team.id)}</option>
           ))}
         </select>
       </label>
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-slate-200">気になる国</h3>
+        <h3 className="text-sm font-semibold text-slate-200">一緒に追いかける国</h3>
         <div className="grid gap-2">
           {data.teams.map((team) => (
             <label key={team.id} className="flex items-center justify-between rounded-xl bg-slate-800 px-3 py-3">
               <span>
-                <span className="block text-sm font-semibold">{team.name}</span>
+                <span className="block text-sm font-semibold">{teamName(data.teams, team.id)}</span>
                 <span className="text-xs text-slate-400">Group {team.group}</span>
               </span>
               <input
@@ -728,7 +742,7 @@ function MatchCard({ match, teams, compact = false, showRank = false, onSelect }
         </div>
         <div className="shrink-0 rounded-lg bg-slate-950 px-3 py-2 text-center">
           <p className="text-sm font-bold text-cyan-300">{scoreLabel(match)}</p>
-          <p className="mt-1 text-xs text-slate-400">{match.played ? 'played' : '未実施'}</p>
+          <p className="mt-1 text-xs text-slate-400">{matchStatusLabel(match)}</p>
         </div>
       </div>
     </button>
@@ -770,13 +784,13 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <Metric label="日付" value={match.date} />
-          <Metric label="Kickoff" value={`${match.kickoffTimeJST} JST`} />
-          <Metric label="Stage" value={formatMatchStage(match)} />
-          <Metric label="状態" value={match.played ? 'played' : '未実施'} />
+          <Metric label="キックオフ" value={`${match.kickoffTimeJST} 日本時間`} />
+          <Metric label="ラウンド" value={formatMatchStage(match)} />
+          <Metric label="状態" value={matchStatusLabel(match)} />
           <Metric label="スコア" value={scoreLabel(match)} />
           <Metric label="重要度" value={`${match.importanceLabel} / ${match.importanceScore}点`} />
         </div>
-        <button type="button" onClick={handleDownloadIcs} className="w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200">ICSをダウンロード</button>
+        <button type="button" onClick={handleDownloadIcs} className="w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200">カレンダーに追加</button>
         <p className="text-xs leading-5 text-slate-400">端末やブラウザによっては、ダウンロード後にカレンダーアプリで開く操作が必要です。</p>
         <div className="flex flex-wrap gap-2">
           {match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}
@@ -787,8 +801,8 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
         <h3 className="text-lg font-semibold">関係性</h3>
         <div className="grid gap-2 text-sm">
           <Metric label="日本代表との関係" value={matchIncludesTeam(match, japanTeamId) ? '日本代表が関係する試合' : '直接関係なし'} />
-          <Metric label="メイン推し国との関係" value={preferences.mainFavoriteTeamId ? (matchIncludesTeam(match, preferences.mainFavoriteTeamId) ? `${mainFavoriteName} が関係` : '直接関係なし') : '未設定'} />
-          <Metric label="選択中の推し国との関係" value={selectedTeamNames.length > 0 ? selectedTeamNames.join(' / ') : '直接関係なし'} />
+          <Metric label="メインで応援する国との関係" value={preferences.mainFavoriteTeamId ? (matchIncludesTeam(match, preferences.mainFavoriteTeamId) ? `${mainFavoriteName} が関係` : '直接関係なし') : '未設定'} />
+          <Metric label="応援中の国との関係" value={selectedTeamNames.length > 0 ? selectedTeamNames.join(' / ') : '直接関係なし'} />
         </div>
       </section>
 
@@ -816,12 +830,12 @@ const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences
   const points: string[] = [];
 
   if (matchIncludesTeam(match, japanTeamId)) points.push('日本代表が関係する試合です。');
-  if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) points.push('メイン推し国が関係する試合です。');
-  if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) points.push('選択中の推し国が関係する試合です。');
-  if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('推し国と同組のため、順位に影響する可能性があります。');
+  if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) points.push('メインで応援する国が関係する試合です。');
+  if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) points.push('応援中の国が関係する試合です。');
+  if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('応援する国と同組のため、順位に影響する可能性があります。');
   if (match.stage === 'group') points.push('3位通過ラインに関わる可能性があります。');
-  if (match.played) points.push('消化済みの試合です。現在の順位表・3位通過ラインに結果が反映されています。');
-  if (points.length === 0) points.push('今後のステージや他会場結果を見るうえで参考になる試合です。');
+  if (match.played) points.push('終了した試合です。現在の順位表・3位通過ラインに結果が反映されています。');
+  if (points.length === 0) points.push('今後のラウンドや他会場結果を見るうえで参考になる試合です。');
 
   return [...new Set(points)];
 };
@@ -906,7 +920,7 @@ function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: ThirdPlace
           {trackedSummaries.map((summary) => (
             <div key={summary.teamId} className="rounded-xl bg-slate-900 px-3 py-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="truncate text-sm font-semibold">{summary.teamName}</p>
+                <p className="truncate text-sm font-semibold">{teamName(teams, summary.teamId)}</p>
                 <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[summary.status]}`}>{summary.statusLabel}</span>
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-400">{summary.summary}</p>
