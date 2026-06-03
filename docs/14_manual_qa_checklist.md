@@ -24,8 +24,10 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 ## User-Facing Labels
 
+- [ ] Header eyebrow shows `日本時間で見るW杯ガイド`.
 - [ ] Site name shows `W杯 観戦ナビ`.
 - [ ] Header copy shows `日本代表と応援する国の試合だけ、見る価値で整理`.
+- [ ] Bottom navigation labels are `ホーム`, `日程`, and `設定`.
 - [ ] User-facing labels use `応援する国` style wording instead of `推し国`.
 - [ ] Match Detail uses `カレンダーに追加` instead of `ICSをダウンロード`.
 - [ ] Main date/time displays use `日本時間` instead of `JST`.
@@ -37,6 +39,12 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 - [ ] The page renders without a browser or app error.
 - [ ] Header shows `W杯 観戦ナビ`.
+- [ ] The top of Home shows `今日のおすすめ` when today's matches are available, or `次に見るべき試合` when fallback matches are shown.
+- [ ] If no recommendation match can be displayed, the fallback text `現在表示できるおすすめ試合はありません` is shown.
+- [ ] The recommendation card shows the match pairing, flags, kickoff time, `日本時間`, context label, importance label, and importance score.
+- [ ] The recommendation card shows short reason text and reason tags.
+- [ ] Tapping `試合詳細を見る` opens Match Detail for the recommended match.
+- [ ] Tapping `カレンダーに追加` downloads a `.ics` file for the recommended match.
 - [ ] Qualification status cards are visible.
 - [ ] The `日本代表の試合` section is visible.
 - [ ] The `日本代表の試合` section shows 3 Japan matches.
@@ -51,7 +59,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 ## Schedule Screen
 
-- [ ] The Schedule tab can be opened from the bottom navigation.
+- [ ] The `日程` tab can be opened from the bottom navigation.
 - [ ] Group-stage matches are visible.
 - [ ] Groups A-L matches can be found in the schedule.
 - [ ] Group K and Group L matches are visible.
@@ -62,7 +70,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 ## Settings Screen
 
-- [ ] The Settings tab can be opened from the bottom navigation.
+- [ ] The `設定` tab can be opened from the bottom navigation.
 - [ ] The heading shows `応援する国の設定`.
 - [ ] `メインで応援する国` can be selected.
 - [ ] `一緒に追いかける国` choices can be selected.
@@ -73,7 +81,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 ## Match Detail Screen
 
-- [ ] Tapping a match card opens the detail screen.
+- [ ] Tapping a match card or recommendation detail button opens the detail screen.
 - [ ] The match card title is shown with country names and flag emoji where available.
 - [ ] date, kickoff time, round, score, and importance are shown.
 - [ ] Kickoff time uses `日本時間` wording.
@@ -87,6 +95,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 ## Calendar Download
 
 - [ ] A `.ics` file is downloaded from Match Detail after tapping `カレンダーに追加`.
+- [ ] A `.ics` file is downloaded from the Home recommendation card after tapping `カレンダーに追加`.
 - [ ] The file name includes the match id.
 - [ ] The file can be opened in a calendar app.
 - [ ] The event appears at the expected Japan time.
@@ -97,6 +106,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 - [ ] At an iPhone-like width, no horizontal scrolling occurs.
 - [ ] Bottom navigation is tappable.
+- [ ] Recommendation card buttons are large enough to tap comfortably and do not conflict with each other.
 - [ ] Card text does not collapse or overflow badly.
 - [ ] Buttons are large enough to tap comfortably.
 - [ ] Home, Schedule, Settings, and Match Detail core flows can be used on mobile.
