@@ -3,6 +3,7 @@ export type Team = {
   name: string;
   group: string;
   fifaRank: number;
+  flagEmoji?: string;
 };
 
 export type MatchStage =
