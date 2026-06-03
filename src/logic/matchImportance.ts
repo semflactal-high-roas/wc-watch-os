@@ -81,20 +81,20 @@ const scoreMatch = (
 
   if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) {
     importanceScore += 40;
-    reasonTags.push('推し国の試合');
+    reasonTags.push('応援する国の試合');
   }
 
   if (selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) {
     importanceScore += 30;
-    reasonTags.push('気になる国の試合');
+    reasonTags.push('一緒に追いかける国の試合');
   }
 
   if (match.played) {
     importanceScore -= 20;
-    reasonTags.push('消化済み');
+    reasonTags.push('終了');
   } else {
     importanceScore += 10;
-    reasonTags.push('未実施');
+    reasonTags.push('これから');
   }
 
   if (isTodayMatch(match, today)) {
@@ -110,7 +110,7 @@ const scoreMatch = (
 
   if (targetTeamIds.length > 0 && match.stage === 'group' && isSameGroupMatch(match, teams, groups, targetTeamIds)) {
     importanceScore += 20;
-    reasonTags.push('推し国と同組');
+    reasonTags.push('応援する国と同組');
   }
 
   const stageScore = knockoutStageScores[match.stage] ?? 0;
