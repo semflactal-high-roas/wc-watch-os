@@ -14,7 +14,7 @@ npm run build
 
 実データ投入の手順は `docs/08_real_data_entry.md`、確認項目は `docs/09_data_entry_checklist.md` を参照してください。
 
-公開前の手動QAは `docs/14_manual_qa_checklist.md` を参照してください。
+公開前の手動QAは `docs/14_manual_qa_checklist.md` を参照してください。β公開前の最終確認と既知の制限は `docs/15_beta_release_checklist.md` に集約しています。
 
 ## 公開画面の情報表示
 
