@@ -25,6 +25,7 @@ const validStages = new Set([
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const kickoffTimePattern = /^\d{2}:\d{2}$/;
 const groupMatchIdPattern = /^G-([A-L])-0([1-6])$/;
+const httpsUrlPattern = /^https:\/\/.+/;
 
 const readJson = async (fileName) => {
   const filePath = path.join(dataDir, fileName);
@@ -69,6 +70,32 @@ const formatId = (value) => (typeof value === 'string' && value.length > 0 ? val
 
 const fixtureKey = (teamIdA, teamIdB) => [teamIdA, teamIdB].sort().join('|');
 const formatFixture = (teamIdA, teamIdB) => [teamIdA, teamIdB].sort().join(' vs ');
+
+const validateConfig = (config) => {
+  const errors = [];
+
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return ['config.json: root value must be an object.'];
+  }
+
+  if (typeof config.appName !== 'string' || config.appName.trim().length === 0) {
+    errors.push('config.json: appName must be a non-empty string.');
+  }
+
+  if (!isRealDate(config.lastUpdated)) {
+    errors.push(`config.json: lastUpdated must be YYYY-MM-DD, found ${config.lastUpdated}.`);
+  }
+
+  if (typeof config.scheduleSourceName !== 'string' || config.scheduleSourceName.trim().length === 0) {
+    errors.push('config.json: scheduleSourceName must be a non-empty string.');
+  }
+
+  if (typeof config.scheduleSourceUrl !== 'string' || !httpsUrlPattern.test(config.scheduleSourceUrl)) {
+    errors.push('config.json: scheduleSourceUrl must start with https://.');
+  }
+
+  return errors;
+};
 
 const validateTeams = (teams) => {
   const errors = [];
@@ -371,24 +398,27 @@ const validateMatches = (matches, teams, groups) => {
   return errors;
 };
 
-const validateAppData = ({ teams, groups, matches }) => {
+const validateAppData = ({ teams, groups, matches, config }) => {
   const safeTeams = Array.isArray(teams) ? teams : [];
   const safeGroups = Array.isArray(groups) ? groups : [];
 
   return [
+    ...validateConfig(config),
     ...validateTeams(teams),
     ...validateGroups(groups, safeTeams),
     ...validateMatches(matches, safeTeams, safeGroups),
   ];
 };
 
-const getValidationSummary = ({ teams, groups, matches }) => {
+const getValidationSummary = ({ teams, groups, matches, config }) => {
   const groupMatches = Array.isArray(matches) ? matches.filter((match) => match?.stage === 'group') : [];
 
   return [
     `teams: ${Array.isArray(teams) ? teams.length : 0}`,
     `groups: ${Array.isArray(groups) ? groups.length : 0}`,
     `group-stage matches: ${groupMatches.length}`,
+    `config appName: ${config?.appName ?? '<missing>'}`,
+    `schedule source: ${config?.scheduleSourceName ?? '<missing>'}`,
     `each group has ${expectedTeamsPerGroup} teams`,
     `each group has ${expectedMatchesPerGroup} matches`,
     'all group fixtures are complete round-robin pairs',
@@ -397,6 +427,7 @@ const getValidationSummary = ({ teams, groups, matches }) => {
 
 const main = async () => {
   const data = {
+    config: await readJson('config.json'),
     teams: await readJson('teams.json'),
     groups: await readJson('groups.json'),
     matches: await readJson('matches.json'),
