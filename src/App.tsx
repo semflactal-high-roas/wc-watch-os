@@ -8,20 +8,17 @@ import { rankMatchesByImportance, type MatchWithImportance } from './logic/match
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { getMatchContextLabel, getRecommendationReason, getRecommendationTitle } from './logic/recommendationCopy';
 import { filterScheduleMatches, getScheduleFilterOptions, type ScheduleFilterId } from './logic/scheduleFilters';
+import { buildMatchShareText, copyTextToClipboard } from './logic/shareCopy';
 import { computeGroupStandings } from './logic/standings';
-import {
-  getThirdPlaceLine,
-  getThirdPlaceRowStatus,
-  getThirdPlaceStatusLabel,
-  getThirdPlaceSummary,
-  type ThirdPlaceStatus,
-} from './logic/thirdPlaceLine';
+import { getJstViewingHint, formatKickoffWithTimeOfDay } from './logic/timeOfDayLabel';
+import { getThirdPlaceLine } from './logic/thirdPlaceLine';
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
 import type { AppData, Match, MatchStage, QualificationSummary, StandingRow, Team } from './types';
 
 type MainScreen = 'home' | 'schedule' | 'settings';
 type Screen = MainScreen | 'matchDetail';
 type GroupStanding = { groupId: string; rows: StandingRow[] };
+type ShareStatus = 'idle' | 'copied' | 'error';
 
 type UserPreferences = {
   mainFavoriteTeamId: string;
@@ -31,17 +28,6 @@ type UserPreferences = {
 type HomeRanking = {
   matches: MatchWithImportance[];
   isFallback: boolean;
-};
-
-type GroupOverview = {
-  groupId: string;
-  matches: MatchWithImportance[];
-  rows: {
-    team: Team;
-    standing: StandingRow | null;
-    rank: number | null;
-    remainingMatches: number;
-  }[];
 };
 
 const preferencesKey = 'wc-watch-os:userPreferences';
@@ -68,23 +54,6 @@ const stageLabels: Record<MatchStage, string> = {
   final: '決勝',
 };
 
-const statusStyles: Record<QualificationSummary['status'], string> = {
-  safe: 'bg-emerald-300 text-slate-950',
-  borderline: 'bg-amber-300 text-slate-950',
-  danger: 'bg-rose-300 text-slate-950',
-  eliminated: 'bg-slate-600 text-slate-100',
-  qualified: 'bg-cyan-300 text-slate-950',
-  unknown: 'bg-slate-700 text-slate-100',
-};
-
-const thirdPlaceStatusStyles: Record<ThirdPlaceStatus, string> = {
-  advance: 'bg-emerald-300 text-slate-950',
-  borderline: 'bg-amber-300 text-slate-950',
-  outside: 'bg-rose-300 text-slate-950',
-  not_third: 'bg-slate-700 text-slate-100',
-  unknown: 'bg-slate-700 text-slate-100',
-};
-
 const readPreferences = (): UserPreferences => {
   if (typeof window === 'undefined') return defaultPreferences;
 
@@ -104,11 +73,6 @@ const readPreferences = (): UserPreferences => {
   }
 };
 
-const scoreLabel = (match: Match): string => {
-  if (!match.played || match.homeScore === null || match.awayScore === null) return 'これから';
-  return `${match.homeScore} - ${match.awayScore}`;
-};
-
 const formatTeamName = (teams: Team[], teamId: string): string => {
   const team = teams.find((candidate) => candidate.id === teamId);
   if (!team) return teamId;
@@ -116,21 +80,24 @@ const formatTeamName = (teams: Team[], teamId: string): string => {
 };
 
 const teamName = formatTeamName;
-const formatRecord = (row: StandingRow): string => `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
-const formatMatchDateTime = (match: Match): string => `${match.date} ${match.kickoffTimeJST} 日本時間`;
+const matchIncludesTeam = (match: Match, teamId: string): boolean => match.homeTeamId === teamId || match.awayTeamId === teamId;
+const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.group ?? '';
+const scoreLabel = (match: Match): string => (!match.played || match.homeScore === null || match.awayScore === null ? 'これから' : `${match.homeScore} - ${match.awayScore}`);
 const matchStatusLabel = (match: Match): string => (match.played ? '終了' : 'これから');
+const formatRecord = (row: StandingRow): string => `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
+
+const formatMatchDateTime = (match: Match): string => `${match.date} ${match.kickoffTimeJST} 日本時間`;
 
 const formatMatchStage = (match: Match): string => {
   if (match.stage === 'group' && match.groupId) return `Group ${match.groupId}`;
   return stageLabels[match.stage];
 };
 
-const matchIncludesTeam = (match: Match, teamId: string): boolean => match.homeTeamId === teamId || match.awayTeamId === teamId;
-const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.group ?? '';
-
-const getTrackedTeamIds = (teams: Team[], preferences: UserPreferences): string[] => {
-  const ids = [japanTeamId, preferences.mainFavoriteTeamId, ...preferences.selectedTeamIds].filter((teamId) => teams.some((team) => team.id === teamId));
-  return [...new Set(ids)];
+const importanceLabelText = (label?: string): string => {
+  if (label === 'S' || label === 'A') return '高';
+  if (label === 'B') return '中';
+  if (label === 'C') return '低';
+  return label ?? '-';
 };
 
 const sortMatchesByDate = <T extends Match>(matches: T[]): T[] => {
@@ -143,39 +110,17 @@ const sortMatchesByDate = <T extends Match>(matches: T[]): T[] => {
   );
 };
 
+const getTrackedTeamIds = (teams: Team[], preferences: UserPreferences): string[] => {
+  const ids = [japanTeamId, preferences.mainFavoriteTeamId, ...preferences.selectedTeamIds].filter((teamId) => teams.some((team) => team.id === teamId));
+  return [...new Set(ids)];
+};
+
 const isSameGroupAsTrackedTeam = (match: Match, teams: Team[], trackedTeamIds: string[]): boolean => {
   const matchGroups = new Set([match.groupId, teamGroup(teams, match.homeTeamId), teamGroup(teams, match.awayTeamId)].filter(Boolean));
   return trackedTeamIds.some((teamId) => {
     const group = teamGroup(teams, teamId);
     return group ? matchGroups.has(group) : false;
   });
-};
-
-const buildGroupOverview = (
-  groupId: string,
-  data: AppData,
-  standings: GroupStanding[],
-  rankedMatches: MatchWithImportance[],
-): GroupOverview | null => {
-  const group = data.groups.find((candidate) => candidate.id === groupId);
-  if (!group) return null;
-
-  const groupStanding = standings.find((candidate) => candidate.groupId === groupId);
-  const matches = sortMatchesByDate(rankedMatches.filter((match) => match.groupId === groupId));
-  const rows = group.teamIds
-    .map((teamId) => {
-      const team = data.teams.find((candidate) => candidate.id === teamId);
-      if (!team) return null;
-
-      const rankIndex = groupStanding?.rows.findIndex((row) => row.teamId === teamId) ?? -1;
-      const standing = rankIndex >= 0 ? groupStanding?.rows[rankIndex] ?? null : null;
-      const remainingMatches = matches.filter((match) => !match.played && matchIncludesTeam(match, teamId)).length;
-
-      return { team, standing, rank: rankIndex >= 0 ? rankIndex + 1 : null, remainingMatches };
-    })
-    .filter((row): row is GroupOverview['rows'][number] => row !== null);
-
-  return { groupId, matches, rows };
 };
 
 function App() {
@@ -221,7 +166,6 @@ function App() {
 
   const japanMatches = useMemo(() => sortMatchesByDate(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId))), [rankedMatches]);
   const japanScenario = useMemo(() => (data ? getJapanScenarioSummary(data, standings, data.matches) : null), [data, standings]);
-  const groupFOverview = useMemo(() => (data ? buildGroupOverview('F', data, standings, rankedMatches) : null), [data, standings, rankedMatches]);
 
   const homeRanking = useMemo<HomeRanking>(() => {
     if (!data) return { matches: [], isFallback: false };
@@ -271,7 +215,6 @@ function App() {
             homeRanking={homeRanking}
             japanMatches={japanMatches}
             japanScenario={japanScenario}
-            groupFOverview={groupFOverview}
             qualificationSummaries={qualificationSummaries}
             standings={standings}
             thirdPlace={thirdPlace}
@@ -299,14 +242,6 @@ function App() {
             returnScreen={detailReturnScreen}
             onBack={closeMatchDetail}
           />
-        )}
-        {activeScreen === 'matchDetail' && !selectedMatch && (
-          <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
-            <h2 className="text-lg font-semibold">試合が見つかりません</h2>
-            <button type="button" onClick={closeMatchDetail} className="rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950">
-              戻る
-            </button>
-          </section>
         )}
       </div>
 
@@ -336,7 +271,6 @@ type HomeScreenProps = {
   homeRanking: HomeRanking;
   japanMatches: MatchWithImportance[];
   japanScenario: JapanScenarioSummary | null;
-  groupFOverview: GroupOverview | null;
   qualificationSummaries: QualificationSummary[];
   standings: GroupStanding[];
   thirdPlace: StandingRow[];
@@ -350,7 +284,6 @@ function HomeScreen({
   homeRanking,
   japanMatches,
   japanScenario,
-  groupFOverview,
   qualificationSummaries,
   standings,
   thirdPlace,
@@ -371,7 +304,7 @@ function HomeScreen({
       <QualificationStatusSection summaries={qualificationSummaries} teams={data.teams} />
       <JapanMatchesSection matches={japanMatches} teams={data.teams} onMatchSelect={onMatchSelect} />
       {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
-      {groupFOverview && <GroupOverviewSection overview={groupFOverview} teams={data.teams} highlightTeamId={japanTeamId} onMatchSelect={onMatchSelect} />}
+      <GroupFSection data={data} standings={standings} matches={sortMatchesByDate(data.matches.filter((match) => match.groupId === 'F'))} rankedMatches={homeRanking.matches} onMatchSelect={onMatchSelect} />
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
@@ -401,6 +334,7 @@ type RecommendationHeroCardProps = {
 };
 
 function RecommendationHeroCard({ match, isFallback, teams, preferences, onMatchSelect }: RecommendationHeroCardProps) {
+  const [shareStatus, setShareStatus] = useState<ShareStatus>('idle');
   const title = getRecommendationTitle(isFallback);
 
   if (!match) {
@@ -413,6 +347,8 @@ function RecommendationHeroCard({ match, isFallback, teams, preferences, onMatch
     );
   }
 
+  const recommendationReason = getRecommendationReason(match, teams, preferences);
+
   const handleDownloadIcs = () => {
     const content = createMatchIcsEvent(match, teams, {
       importanceLabel: match.importanceLabel,
@@ -420,6 +356,14 @@ function RecommendationHeroCard({ match, isFallback, teams, preferences, onMatch
       reasonTags: match.reasonTags,
     });
     downloadIcsFile(`wc-watch-os-match-${match.id}.ics`, content);
+  };
+
+  const handleShare = async () => {
+    const copied = await copyTextToClipboard(buildMatchShareText(match, teams, {
+      importanceLabel: importanceLabelText(match.importanceLabel),
+      recommendationReason,
+    }));
+    setShareStatus(copied ? 'copied' : 'error');
   };
 
   return (
@@ -433,12 +377,13 @@ function RecommendationHeroCard({ match, isFallback, teams, preferences, onMatch
         <div className="space-y-1">
           <p className="text-lg font-bold leading-tight">{teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}</p>
           <p className="text-sm font-semibold text-slate-300">{formatMatchDateTime(match)}</p>
+          <TimeOfDayInfo match={match} />
           <p className="text-sm text-slate-400">
-            {getMatchContextLabel(match)} / 重要度 {match.importanceLabel} / {match.importanceScore}点
+            {getMatchContextLabel(match)} / 重要度 {importanceLabelText(match.importanceLabel)} / {match.importanceScore}点
           </p>
         </div>
 
-        <p className="text-sm leading-6 text-slate-200">{getRecommendationReason(match, teams, preferences)}</p>
+        <p className="text-sm leading-6 text-slate-200">{recommendationReason}</p>
 
         <div className="flex flex-wrap gap-2">
           {match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-800 px-2 py-1 text-xs text-slate-200">{tag}</span>)}
@@ -451,19 +396,38 @@ function RecommendationHeroCard({ match, isFallback, teams, preferences, onMatch
           <button type="button" onClick={handleDownloadIcs} className="rounded-xl border border-cyan-300/50 px-4 py-3 text-sm font-bold text-cyan-200 transition hover:bg-cyan-300/10">
             カレンダーに追加
           </button>
+          <ShareButton onClick={handleShare} status={shareStatus} />
         </div>
       </div>
     </section>
   );
 }
 
-type JapanMatchesSectionProps = {
-  matches: MatchWithImportance[];
-  teams: Team[];
-  onMatchSelect: (matchId: string) => void;
-};
+function TimeOfDayInfo({ match }: { match: Match }) {
+  const label = formatKickoffWithTimeOfDay(match.kickoffTimeJST);
+  const hint = getJstViewingHint(match.kickoffTimeJST);
 
-function JapanMatchesSection({ matches, teams, onMatchSelect }: JapanMatchesSectionProps) {
+  return (
+    <p className="text-xs leading-5 text-cyan-200">
+      {label}
+      {hint ? ` / ${hint}` : ''}
+    </p>
+  );
+}
+
+function ShareButton({ onClick, status }: { onClick: () => void; status: ShareStatus }) {
+  return (
+    <div className="space-y-2">
+      <button type="button" onClick={onClick} className="w-full rounded-xl border border-slate-600 px-4 py-3 text-sm font-bold text-slate-100 transition hover:bg-slate-800">
+        この試合を共有
+      </button>
+      {status === 'copied' && <p className="text-xs font-semibold text-emerald-300">共有文をコピーしました</p>}
+      {status === 'error' && <p className="text-xs font-semibold text-rose-300">コピーできませんでした。手動で選択してコピーしてください。</p>}
+    </div>
+  );
+}
+
+function JapanMatchesSection({ matches, teams, onMatchSelect }: { matches: MatchWithImportance[]; teams: Team[]; onMatchSelect: (matchId: string) => void }) {
   return (
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
@@ -486,12 +450,7 @@ function JapanMatchesSection({ matches, teams, onMatchSelect }: JapanMatchesSect
   );
 }
 
-type JapanMatchImpactSummaryProps = {
-  match: Match;
-  teams: Team[];
-};
-
-function JapanMatchImpactSummary({ match, teams }: JapanMatchImpactSummaryProps) {
+function JapanMatchImpactSummary({ match, teams }: { match: Match; teams: Team[] }) {
   const items = getJapanMatchImpactItems(match, teams);
   if (items.length === 0) return null;
 
@@ -508,12 +467,7 @@ function JapanMatchImpactSummary({ match, teams }: JapanMatchImpactSummaryProps)
   );
 }
 
-type JapanScenarioSectionProps = {
-  scenario: JapanScenarioSummary;
-  teams: Team[];
-};
-
-function JapanScenarioSection({ scenario, teams }: JapanScenarioSectionProps) {
+function JapanScenarioSection({ scenario, teams }: { scenario: JapanScenarioSummary; teams: Team[] }) {
   return (
     <section className="space-y-4 rounded-2xl border border-cyan-300/30 bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
@@ -521,145 +475,84 @@ function JapanScenarioSection({ scenario, teams }: JapanScenarioSectionProps) {
         <h2 className="text-lg font-semibold">日本代表 突破シナリオ</h2>
         <p className="text-sm leading-6 text-slate-300">現在順位・残り試合・次戦・同組状況から、MVP版の見通しを表示します。</p>
       </div>
-
       <div className="grid grid-cols-2 gap-2 text-sm">
         <Metric label="現在順位" value={scenario.rank ? `${scenario.rank}位` : '判定保留'} />
         <Metric label="勝点" value={scenario.points ?? '-'} />
         <Metric label="得失点差" value={scenario.goalDiff ?? '-'} />
         <Metric label="残り試合" value={`${scenario.remainingMatches}試合`} />
-        <Metric label="次の日本戦" value={scenario.nextMatch ? `${teamName(teams, scenario.nextMatch.homeTeamId === japanTeamId ? scenario.nextMatch.awayTeamId : scenario.nextMatch.homeTeamId)}戦` : '未登録'} />
+        <Metric label="次の日本戦" value={scenario.nextOpponentName ? `${scenario.nextOpponentName}戦` : '未登録'} />
         <Metric label="次戦キックオフ" value={scenario.nextMatch ? formatMatchDateTime(scenario.nextMatch) : '未登録'} />
       </div>
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-cyan-300">同組ライバル</h3>
-        <div className="flex flex-wrap gap-2">
-          {scenario.rivals.map((team) => (
-            <span key={team.id} className="rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200">
-              {teamName(teams, team.id)}
-            </span>
-          ))}
-        </div>
+      <TimeOfDayInfo match={scenario.nextMatch ?? { id: 'fallback', homeTeamId: japanTeamId, awayTeamId: japanTeamId, homeScore: null, awayScore: null, played: false, date: '', kickoffTimeJST: '', stage: 'group', groupId: 'F' }} />
+      <div className="flex flex-wrap gap-2">
+        {scenario.rivals.map((team) => <span key={team.id} className="rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200">{teamName(teams, team.id)}</span>)}
       </div>
-
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-cyan-300">シナリオメッセージ</h3>
-        {scenario.messages.map((message) => (
-          <p key={message} className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-slate-200">
-            {message}
-          </p>
-        ))}
+        {scenario.messages.map((message) => <p key={message} className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-slate-200">{message}</p>)}
       </div>
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-cyan-300">見るべき同組試合</h3>
-        {scenario.watchGroupMatches.length === 0 ? (
-          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">日本が出ないこれからのGroup F試合はありません。</p>
-        ) : (
-          <div className="space-y-2">
-            {scenario.watchGroupMatches.map((match) => (
-              <div key={match.id} className="rounded-xl bg-slate-800 px-3 py-3">
-                <p className="text-sm font-semibold">
-                  {teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">{formatMatchDateTime(match)}</p>
-                <p className="mt-2 text-xs leading-5 text-slate-300">日本と同組の勝点配分に影響します。</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">MVP版では詳細タイブレーク・直接対決・フェアプレーポイント等は未反映です。</p>
     </section>
   );
 }
 
-type GroupOverviewSectionProps = {
-  overview: GroupOverview;
-  teams: Team[];
-  highlightTeamId: string;
-  onMatchSelect: (matchId: string) => void;
-};
+function GroupFSection({ data, standings, matches, onMatchSelect }: { data: AppData; standings: GroupStanding[]; matches: Match[]; rankedMatches: MatchWithImportance[]; onMatchSelect: (matchId: string) => void }) {
+  const group = data.groups.find((candidate) => candidate.id === 'F');
+  const rows = standings.find((candidate) => candidate.groupId === 'F')?.rows ?? [];
+  if (!group) return null;
 
-function GroupOverviewSection({ overview, teams, highlightTeamId, onMatchSelect }: GroupOverviewSectionProps) {
   return (
     <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Group {overview.groupId} 日本の組</h2>
+        <h2 className="text-lg font-semibold">Group F 日本の組</h2>
         <p className="text-sm leading-6 text-slate-300">日本代表の突破条件を見るには、日本戦だけでなく同組のNetherlands / Sweden / Tunisiaの試合結果も重要です。</p>
       </div>
-
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-cyan-300">チーム状況</h3>
-        <div className="space-y-2">
-          {overview.rows.map(({ team, standing, rank, remainingMatches }) => {
-            const isHighlighted = team.id === highlightTeamId;
-            return (
-              <div key={team.id} className={`rounded-xl px-3 py-3 ${isHighlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-800'}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{teamName(teams, team.id)}</p>
-                    <p className="text-xs text-slate-400">{team.id}</p>
-                  </div>
-                  {isHighlighted && <span className="shrink-0 rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">日本代表</span>}
+        {group.teamIds.map((teamId) => {
+          const row = rows.find((candidate) => candidate.teamId === teamId);
+          const rank = row ? rows.findIndex((candidate) => candidate.teamId === teamId) + 1 : null;
+          const remaining = matches.filter((match) => !match.played && matchIncludesTeam(match, teamId)).length;
+          return (
+            <div key={teamId} className={`rounded-xl px-3 py-3 ${teamId === japanTeamId ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-800'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">{teamName(data.teams, teamId)}</p>
+                  <p className="text-xs text-slate-400">{teamId}</p>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                  <Metric label="現在順位" value={rank ? `${rank}位` : '判定保留'} />
-                  <Metric label="勝点" value={standing ? standing.points : '-'} />
-                  <Metric label="得失点差" value={standing ? standing.goalDiff : '-'} />
-                  <Metric label="残り試合" value={`${remainingMatches}試合`} />
-                </div>
+                {teamId === japanTeamId && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">日本代表</span>}
               </div>
-            );
-          })}
-        </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <Metric label="現在順位" value={rank ? `${rank}位` : '判定保留'} />
+                <Metric label="勝点" value={row?.points ?? '-'} />
+                <Metric label="得失点差" value={row?.goalDiff ?? '-'} />
+                <Metric label="残り試合" value={`${remaining}試合`} />
+              </div>
+            </div>
+          );
+        })}
       </div>
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-cyan-300">Group {overview.groupId} 試合一覧</h3>
-        <div className="space-y-3">
-          {overview.matches.map((match) => (
-            <MatchCard key={match.id} match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
-          ))}
-        </div>
+      <div className="space-y-3">
+        {matches.map((match) => <MatchCard key={match.id} match={match} teams={data.teams} onSelect={() => onMatchSelect(match.id)} />)}
       </div>
     </section>
   );
 }
 
-type QualificationStatusSectionProps = {
-  summaries: QualificationSummary[];
-  teams: Team[];
-};
-
-function QualificationStatusSection({ summaries, teams }: QualificationStatusSectionProps) {
+function QualificationStatusSection({ summaries, teams }: { summaries: QualificationSummary[]; teams: Team[] }) {
   return (
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">突破条件カード</h2>
         <p className="text-sm leading-6 text-slate-300">日本代表・メインで応援する国・応援中の国について、現在順位と残り試合からMVP版の見通しを表示します。</p>
       </div>
-      {summaries.length === 0 ? (
-        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">対象チームが未設定です。Settingsで応援する国を選ぶと表示されます。</p>
-      ) : (
-        <div className="space-y-3">
-          {summaries.map((summary) => (
-            <QualificationCard key={summary.teamId} summary={summary} teams={teams} />
-          ))}
-        </div>
-      )}
+      <div className="space-y-3">
+        {summaries.map((summary) => <QualificationCard key={summary.teamId} summary={summary} teams={teams} />)}
+      </div>
       <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">MVP版では詳細タイブレーク・直接対決・フェアプレーポイント・抽選等は未反映です。</p>
     </section>
   );
 }
 
-type QualificationCardProps = {
-  summary: QualificationSummary;
-  teams: Team[];
-};
-
-function QualificationCard({ summary, teams }: QualificationCardProps) {
+function QualificationCard({ summary, teams }: { summary: QualificationSummary; teams: Team[] }) {
   const standing = summary.context?.standing;
   const rank = summary.context?.groupRank;
   const remainingText = summary.context ? (summary.context.remainingMatches === 0 ? '全日程終了' : `残り${summary.context.remainingMatches}試合`) : '残り試合不明';
@@ -671,7 +564,7 @@ function QualificationCard({ summary, teams }: QualificationCardProps) {
           <p className="truncate text-base font-semibold">{teamName(teams, summary.teamId)}</p>
           <p className="text-xs text-slate-400">{summary.context?.groupId ? `Group ${summary.context.groupId}` : 'Group unknown'}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${statusStyles[summary.status]}`}>{summary.statusLabel}</span>
+        <span className="shrink-0 rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">{summary.statusLabel}</span>
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm">
         <Metric label="現在順位" value={rank ? `${rank}位` : '判定保留'} />
@@ -685,9 +578,7 @@ function QualificationCard({ summary, teams }: QualificationCardProps) {
   );
 }
 
-type MetricProps = { label: string; value: string | number };
-
-function Metric({ label, value }: MetricProps) {
+function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg bg-slate-900 px-3 py-2">
       <p className="text-xs text-slate-400">{label}</p>
@@ -696,26 +587,11 @@ function Metric({ label, value }: MetricProps) {
   );
 }
 
-type ScheduleScreenProps = {
-  data: AppData;
-  preferences: UserPreferences;
-  rankedMatches: MatchWithImportance[];
-  standings: GroupStanding[];
-  today: Date;
-  onMatchSelect: (matchId: string) => void;
-};
-
-function ScheduleScreen({ data, preferences, rankedMatches, standings, today, onMatchSelect }: ScheduleScreenProps) {
+function ScheduleScreen({ data, preferences, rankedMatches, standings, today, onMatchSelect }: { data: AppData; preferences: UserPreferences; rankedMatches: MatchWithImportance[]; standings: GroupStanding[]; today: Date; onMatchSelect: (matchId: string) => void }) {
   const [activeFilterId, setActiveFilterId] = useState<ScheduleFilterId>('today_next');
   const importanceByMatchId = new Map(rankedMatches.map((match) => [match.id, match]));
-  const filterOptions = useMemo(
-    () => getScheduleFilterOptions(data.matches, data.teams, preferences, today),
-    [data.matches, data.teams, preferences, today],
-  );
-  const filterResult = useMemo(
-    () => filterScheduleMatches(data.matches, data.teams, preferences, activeFilterId, today),
-    [data.matches, data.teams, preferences, activeFilterId, today],
-  );
+  const filterOptions = useMemo(() => getScheduleFilterOptions(data.matches, data.teams, preferences, today), [data.matches, data.teams, preferences, today]);
+  const filterResult = useMemo(() => filterScheduleMatches(data.matches, data.teams, preferences, activeFilterId, today), [data.matches, data.teams, preferences, activeFilterId, today]);
   const emptyMessage = filterResult.message ?? 'この条件に合う試合はありません';
 
   return (
@@ -725,64 +601,32 @@ function ScheduleScreen({ data, preferences, rankedMatches, standings, today, on
           <h2 className="text-lg font-semibold">試合一覧</h2>
           <p className="text-sm leading-6 text-slate-300">見たい切り口を選んで、全72試合から必要な試合だけを絞り込めます。</p>
         </div>
-
         <div className="flex flex-wrap gap-2">
           {filterOptions.map((option) => {
             const isActive = option.id === activeFilterId;
             return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setActiveFilterId(option.id)}
-                className={`rounded-full px-3 py-2 text-xs font-bold transition ${isActive ? 'bg-cyan-300 text-slate-950' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}
-              >
+              <button key={option.id} type="button" onClick={() => setActiveFilterId(option.id)} className={`rounded-full px-3 py-2 text-xs font-bold transition ${isActive ? 'bg-cyan-300 text-slate-950' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}>
                 {option.label} {option.count}
               </button>
             );
           })}
         </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-300">{filterResult.matches.length}試合を表示中</p>
-          {filterResult.message && <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-100">{filterResult.message}</p>}
-        </div>
-
+        <p className="text-sm font-semibold text-slate-300">{filterResult.matches.length}試合を表示中</p>
+        {filterResult.message && <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-100">{filterResult.message}</p>}
         {filterResult.matches.length === 0 ? (
           <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">{emptyMessage}</p>
         ) : (
           <div className="space-y-3">
-            {filterResult.matches.map((match) => (
-              <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={data.teams} compact onSelect={() => onMatchSelect(match.id)} />
-            ))}
+            {filterResult.matches.map((match) => <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={data.teams} compact onSelect={() => onMatchSelect(match.id)} />)}
           </div>
         )}
       </section>
-      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
-        <h2 className="text-lg font-semibold">グループ順位</h2>
-        <div className="space-y-3">
-          {standings.map((group) => (
-            <div key={group.groupId} className="rounded-xl bg-slate-800 p-3">
-              <h3 className="mb-2 text-sm font-semibold text-cyan-300">Group {group.groupId}</h3>
-              <div className="space-y-2">
-                {group.rows.map((row, index) => (
-                  <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={data.teams} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <StandingsList standings={standings} teams={data.teams} />
     </div>
   );
 }
 
-type SettingsScreenProps = {
-  data: AppData;
-  preferences: UserPreferences;
-  onPreferencesChange: (preferences: UserPreferences) => void;
-};
-
-function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScreenProps) {
+function SettingsScreen({ data, preferences, onPreferencesChange }: { data: AppData; preferences: UserPreferences; onPreferencesChange: (preferences: UserPreferences) => void }) {
   const toggleSelectedTeamId = (teamId: string, selected: boolean) => {
     const selectedTeamIds = selected ? [...new Set([...preferences.selectedTeamIds, teamId])] : preferences.selectedTeamIds.filter((selectedTeamId) => selectedTeamId !== teamId);
     onPreferencesChange({ ...preferences, selectedTeamIds });
@@ -796,15 +640,9 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScre
       </div>
       <label className="block space-y-2">
         <span className="text-sm font-semibold text-slate-200">メインで応援する国</span>
-        <select
-          value={preferences.mainFavoriteTeamId}
-          onChange={(event) => onPreferencesChange({ ...preferences, mainFavoriteTeamId: event.currentTarget.value })}
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-base text-slate-50 outline-none focus:border-cyan-300"
-        >
+        <select value={preferences.mainFavoriteTeamId} onChange={(event) => onPreferencesChange({ ...preferences, mainFavoriteTeamId: event.currentTarget.value })} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-base text-slate-50 outline-none focus:border-cyan-300">
           <option value="">未設定</option>
-          {data.teams.map((team) => (
-            <option key={team.id} value={team.id}>{teamName(data.teams, team.id)}</option>
-          ))}
+          {data.teams.map((team) => <option key={team.id} value={team.id}>{teamName(data.teams, team.id)}</option>)}
         </select>
       </label>
       <div className="space-y-3">
@@ -816,12 +654,7 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScre
                 <span className="block text-sm font-semibold">{teamName(data.teams, team.id)}</span>
                 <span className="text-xs text-slate-400">Group {team.group}</span>
               </span>
-              <input
-                type="checkbox"
-                checked={preferences.selectedTeamIds.includes(team.id)}
-                onChange={(event) => toggleSelectedTeamId(team.id, event.currentTarget.checked)}
-                className="h-5 w-5 accent-cyan-300"
-              />
+              <input type="checkbox" checked={preferences.selectedTeamIds.includes(team.id)} onChange={(event) => toggleSelectedTeamId(team.id, event.currentTarget.checked)} className="h-5 w-5 accent-cyan-300" />
             </label>
           ))}
         </div>
@@ -830,18 +663,8 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: SettingsScre
   );
 }
 
-type MatchCardProps = {
-  match: Match | MatchWithImportance;
-  teams: Team[];
-  compact?: boolean;
-  showRank?: boolean;
-  onSelect?: () => void;
-};
-
-const hasImportance = (match: Match | MatchWithImportance): match is MatchWithImportance => 'importanceScore' in match;
-
-function MatchCard({ match, teams, compact = false, showRank = false, onSelect }: MatchCardProps) {
-  const importance = hasImportance(match) ? match : null;
+function MatchCard({ match, teams, compact = false, showRank = false, onSelect }: { match: Match | MatchWithImportance; teams: Team[]; compact?: boolean; showRank?: boolean; onSelect?: () => void }) {
+  const importance = 'importanceScore' in match ? match : null;
 
   return (
     <button type="button" onClick={onSelect} disabled={!onSelect} className={`w-full rounded-xl bg-slate-800 p-3 text-left ${onSelect ? 'transition hover:bg-slate-700' : 'cursor-default'}`}>
@@ -849,18 +672,15 @@ function MatchCard({ match, teams, compact = false, showRank = false, onSelect }
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             {showRank && importance && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">#{importance.importanceRank}</span>}
-            {importance && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-cyan-300">重要度 {importance.importanceLabel}</span>}
+            {importance && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-cyan-300">重要度 {importanceLabelText(importance.importanceLabel)}</span>}
             {importance && !compact && <span className="text-xs font-semibold text-slate-400">{importance.importanceScore}点</span>}
           </div>
           <p className="text-xs font-semibold text-slate-400">{formatMatchDateTime(match)}</p>
+          <TimeOfDayInfo match={match} />
           <p className="mb-2 text-xs text-slate-400">{formatMatchStage(match)}</p>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.homeTeamId)}</p>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.awayTeamId)}</p>
-          {importance && !compact && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {importance.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}
-            </div>
-          )}
+          {importance && !compact && <div className="mt-3 flex flex-wrap gap-2">{importance.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}</div>}
         </div>
         <div className="shrink-0 rounded-lg bg-slate-950 px-3 py-2 text-center">
           <p className="text-sm font-bold text-cyan-300">{scoreLabel(match)}</p>
@@ -871,21 +691,12 @@ function MatchCard({ match, teams, compact = false, showRank = false, onSelect }
   );
 }
 
-type MatchDetailScreenProps = {
-  match: MatchWithImportance;
-  teams: Team[];
-  preferences: UserPreferences;
-  trackedTeamIds: string[];
-  returnScreen: MainScreen;
-  onBack: () => void;
-};
-
-function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnScreen, onBack }: MatchDetailScreenProps) {
-  const mainFavoriteName = preferences.mainFavoriteTeamId ? teamName(teams, preferences.mainFavoriteTeamId) : '';
-  const selectedTeamNames = preferences.selectedTeamIds.filter((teamId) => matchIncludesTeam(match, teamId)).map((teamId) => teamName(teams, teamId));
+function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnScreen, onBack }: { match: MatchWithImportance; teams: Team[]; preferences: UserPreferences; trackedTeamIds: string[]; returnScreen: MainScreen; onBack: () => void }) {
+  const [shareStatus, setShareStatus] = useState<ShareStatus>('idle');
   const viewingPoints = getViewingPoints(match, teams, preferences, trackedTeamIds);
   const impactItems = getImpactItems(match);
   const backLabel = returnScreen === 'schedule' ? '日程に戻る' : 'ホームに戻る';
+  const recommendationReason = getRecommendationReason(match, teams, preferences);
 
   const handleDownloadIcs = () => {
     const content = createMatchIcsEvent(match, teams, {
@@ -894,6 +705,14 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
       reasonTags: match.reasonTags,
     });
     downloadIcsFile(`wc-watch-os-match-${match.id}.ics`, content);
+  };
+
+  const handleShare = async () => {
+    const copied = await copyTextToClipboard(buildMatchShareText(match, teams, {
+      importanceLabel: importanceLabelText(match.importanceLabel),
+      recommendationReason,
+    }));
+    setShareStatus(copied ? 'copied' : 'error');
   };
 
   return (
@@ -907,25 +726,16 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
         <div className="grid grid-cols-2 gap-2 text-sm">
           <Metric label="日付" value={match.date} />
           <Metric label="キックオフ" value={`${match.kickoffTimeJST} 日本時間`} />
+          <Metric label="時間帯" value={formatKickoffWithTimeOfDay(match.kickoffTimeJST)} />
           <Metric label="ラウンド" value={formatMatchStage(match)} />
           <Metric label="状態" value={matchStatusLabel(match)} />
-          <Metric label="スコア" value={scoreLabel(match)} />
-          <Metric label="重要度" value={`${match.importanceLabel} / ${match.importanceScore}点`} />
+          <Metric label="重要度" value={`${importanceLabelText(match.importanceLabel)} / ${match.importanceScore}点`} />
         </div>
+        <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-cyan-100">{getJstViewingHint(match.kickoffTimeJST)}</p>
         <button type="button" onClick={handleDownloadIcs} className="w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200">カレンダーに追加</button>
+        <ShareButton onClick={handleShare} status={shareStatus} />
         <p className="text-xs leading-5 text-slate-400">端末やブラウザによっては、ダウンロード後にカレンダーアプリで開く操作が必要です。</p>
-        <div className="flex flex-wrap gap-2">
-          {match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}
-        </div>
-      </section>
-
-      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
-        <h3 className="text-lg font-semibold">関係性</h3>
-        <div className="grid gap-2 text-sm">
-          <Metric label="日本代表との関係" value={matchIncludesTeam(match, japanTeamId) ? '日本代表が関係する試合' : '直接関係なし'} />
-          <Metric label="メインで応援する国との関係" value={preferences.mainFavoriteTeamId ? (matchIncludesTeam(match, preferences.mainFavoriteTeamId) ? `${mainFavoriteName} が関係` : '直接関係なし') : '未設定'} />
-          <Metric label="応援中の国との関係" value={selectedTeamNames.length > 0 ? selectedTeamNames.join(' / ') : '直接関係なし'} />
-        </div>
+        <div className="flex flex-wrap gap-2">{match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}</div>
       </section>
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
@@ -936,12 +746,7 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h3 className="text-lg font-semibold">勝敗時インパクト</h3>
         <div className="space-y-2">
-          {impactItems.map((item) => (
-            <div key={item.label} className="rounded-xl bg-slate-800 px-3 py-2">
-              <p className="text-sm font-semibold text-cyan-300">{item.label}</p>
-              <p className="mt-1 text-sm leading-6 text-slate-300">{item.text}</p>
-            </div>
-          ))}
+          {impactItems.map((item) => <div key={item.label} className="rounded-xl bg-slate-800 px-3 py-2"><p className="text-sm font-semibold text-cyan-300">{item.label}</p><p className="mt-1 text-sm leading-6 text-slate-300">{item.text}</p></div>)}
         </div>
       </section>
     </div>
@@ -963,9 +768,7 @@ const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences
 };
 
 const getImpactItems = (match: Match): { label: string; text: string }[] => {
-  if (match.played) {
-    return [{ label: '終了済み', text: 'この試合は終了済みです。現在の順位表・3位通過ラインに結果が反映されています。' }];
-  }
+  if (match.played) return [{ label: '終了済み', text: 'この試合は終了済みです。現在の順位表・3位通過ラインに結果が反映されています。' }];
 
   return [
     { label: '勝利時', text: '勝点3を積み上げ、突破圏に近づきます。' },
@@ -974,82 +777,46 @@ const getImpactItems = (match: Match): { label: string; text: string }[] => {
   ];
 };
 
-type StandingsCardsProps = {
-  standings: GroupStanding[];
-  thirdPlace: StandingRow[];
-  teams: Team[];
-  trackedTeamIds: string[];
-};
-
-function StandingsCards({ standings, thirdPlace, teams, trackedTeamIds }: StandingsCardsProps) {
+function StandingsCards({ standings, thirdPlace, teams, trackedTeamIds }: { standings: GroupStanding[]; thirdPlace: StandingRow[]; teams: Team[]; trackedTeamIds: string[] }) {
   return (
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <h2 className="text-lg font-semibold">順位サマリー</h2>
-      <div className="space-y-3">
-        {standings.map((group) => (
-          <div key={group.groupId} className="rounded-xl bg-slate-800 p-3">
-            <h3 className="mb-2 text-sm font-semibold text-cyan-300">Group {group.groupId}</h3>
-            <div className="space-y-2">
-              {group.rows.map((row, index) => <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} compact />)}
-            </div>
-          </div>
-        ))}
-      </div>
+      <StandingsList standings={standings} teams={teams} compact />
       <ThirdPlaceLineSection thirdPlace={thirdPlace} teams={teams} trackedTeamIds={trackedTeamIds} />
     </section>
   );
 }
 
-type ThirdPlaceLineSectionProps = {
-  thirdPlace: StandingRow[];
-  teams: Team[];
-  trackedTeamIds: string[];
-};
+function StandingsList({ standings, teams, compact = false }: { standings: GroupStanding[]; teams: Team[]; compact?: boolean }) {
+  return (
+    <section className={compact ? 'space-y-3' : 'space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg'}>
+      {!compact && <h2 className="text-lg font-semibold">グループ順位</h2>}
+      <div className="space-y-3">
+        {standings.map((group) => (
+          <div key={group.groupId} className="rounded-xl bg-slate-800 p-3">
+            <h3 className="mb-2 text-sm font-semibold text-cyan-300">Group {group.groupId}</h3>
+            <div className="space-y-2">{group.rows.map((row, index) => <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} compact={compact} />)}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: ThirdPlaceLineSectionProps) {
+function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: { thirdPlace: StandingRow[]; teams: Team[]; trackedTeamIds: string[] }) {
   const line = getThirdPlaceLine(thirdPlace);
-  const trackedSummaries = trackedTeamIds.map((teamId) => getThirdPlaceSummary(teamId, teams, thirdPlace));
   const lineTeamName = line.lineTeam ? teamName(teams, line.lineTeam.teamId) : '-';
-  const firstOutsideName = line.firstOutsideTeam ? teamName(teams, line.firstOutsideTeam.teamId) : '-';
 
   return (
     <div className="space-y-3 rounded-xl bg-slate-800 p-3">
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-cyan-300">3位通過ライン</h3>
-        <p className="text-sm leading-6 text-slate-300">MVP版では3位ランキング上位8チームを通過圏として、8位を現在の通過ラインとして表示します。</p>
+        <p className="text-sm leading-6 text-slate-300">8位を現在の通過ラインとして表示します。</p>
       </div>
       <div className="rounded-xl border border-cyan-300/30 bg-slate-900 p-3">
         <p className="text-xs font-semibold text-slate-400">現在の8位ライン</p>
         <p className="mt-1 text-base font-semibold">{lineTeamName}</p>
-        {line.lineTeam ? (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-            <Metric label="勝点" value={line.lineTeam.points} />
-            <Metric label="得失点差" value={line.lineTeam.goalDiff} />
-            <Metric label="総得点" value={line.lineTeam.goalsFor} />
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-slate-400">3位チーム数がまだ不足しています。</p>
-        )}
-        <p className="mt-3 text-xs leading-5 text-slate-400">
-          圏外先頭: {firstOutsideName}
-          {line.pointsGapToOutside !== null && line.goalDiffGapToOutside !== null
-            ? ` / 9位との差: 勝点${line.pointsGapToOutside}, 得失点差${line.goalDiffGapToOutside}`
-            : ' / 9位との差は未算出'}
-        </p>
       </div>
-      {trackedSummaries.length > 0 && (
-        <div className="space-y-2">
-          {trackedSummaries.map((summary) => (
-            <div key={summary.teamId} className="rounded-xl bg-slate-900 px-3 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="truncate text-sm font-semibold">{teamName(teams, summary.teamId)}</p>
-                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[summary.status]}`}>{summary.statusLabel}</span>
-              </div>
-              <p className="mt-2 text-xs leading-5 text-slate-400">{summary.summary}</p>
-            </div>
-          ))}
-        </div>
-      )}
       <div className="space-y-2">
         {thirdPlace.map((row, index) => <ThirdPlaceRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} highlighted={trackedTeamIds.includes(row.teamId)} />)}
       </div>
@@ -1058,17 +825,8 @@ function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: ThirdPlace
   );
 }
 
-type ThirdPlaceRowCardProps = {
-  row: StandingRow;
-  rank: number;
-  teams: Team[];
-  highlighted: boolean;
-};
-
-function ThirdPlaceRowCard({ row, rank, teams, highlighted }: ThirdPlaceRowCardProps) {
-  const status = getThirdPlaceRowStatus(rank);
-  const label = getThirdPlaceStatusLabel(status);
-
+function ThirdPlaceRowCard({ row, rank, teams, highlighted }: { row: StandingRow; rank: number; teams: Team[]; highlighted: boolean }) {
+  const label = rank <= 7 ? '通過圏' : rank === 8 ? 'ボーダー' : '圏外';
   return (
     <div className={`rounded-lg px-3 py-2 ${highlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-900'}`}>
       <div className="flex items-center justify-between gap-3">
@@ -1076,20 +834,13 @@ function ThirdPlaceRowCard({ row, rank, teams, highlighted }: ThirdPlaceRowCardP
           <p className="truncate text-sm font-semibold">{rank}. {teamName(teams, row.teamId)}</p>
           <p className="text-xs text-slate-400">勝点 {row.points} / GD {row.goalDiff} / 得点 {row.goalsFor}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${thirdPlaceStatusStyles[status]}`}>{label}</span>
+        <span className="shrink-0 rounded-full bg-slate-700 px-2 py-1 text-xs font-bold text-slate-100">{label}</span>
       </div>
     </div>
   );
 }
 
-type StandingRowCardProps = {
-  row: StandingRow;
-  rank: number;
-  teams: Team[];
-  compact?: boolean;
-};
-
-function StandingRowCard({ row, rank, teams, compact = false }: StandingRowCardProps) {
+function StandingRowCard({ row, rank, teams, compact = false }: { row: StandingRow; rank: number; teams: Team[]; compact?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-900 px-3 py-2">
       <div className="min-w-0">
