@@ -15,3 +15,7 @@ npm run build
 実データ投入の手順は `docs/08_real_data_entry.md`、確認項目は `docs/09_data_entry_checklist.md` を参照してください。
 
 公開前の手動QAは `docs/14_manual_qa_checklist.md` を参照してください。
+
+## 公開画面の情報表示
+
+公開画面では、最終更新日と日程ソース（FIFA公式）を共通フッターのデータ情報に表示します。URL共有時に内容が分かるよう、`index.html` の title / description / OGP / Twitter card も設定しています。
