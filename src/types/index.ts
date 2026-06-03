@@ -33,6 +33,17 @@ export type Group = {
   teamIds: string[];
 };
 
+export type AppConfig = {
+  tournament?: string;
+  season?: number;
+  version?: string;
+  appName?: string;
+  lastUpdated?: string;
+  scheduleSourceName?: string;
+  scheduleSourceUrl?: string;
+  dataNote?: string;
+};
+
 export type StandingRow = {
   teamId: string;
   played: number;
@@ -75,4 +86,5 @@ export type AppData = {
   teams: Team[];
   groups: Group[];
   matches: Match[];
+  config: AppConfig;
 };

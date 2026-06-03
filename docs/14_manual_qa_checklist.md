@@ -114,6 +114,25 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] Example: `2026-06-15 05:00 日本時間` may be stored as UTC inside the ICS, but should display correctly in a calendar app.
 - [ ] On a device using Japan time zone, confirm the event displays in Japan time.
 
+## Data Source Display
+
+- [ ] A common data information footer is visible on the published page.
+- [ ] The footer shows `最終更新`.
+- [ ] The footer shows `日程ソース：FIFA公式`.
+- [ ] The FIFA official source link can be opened.
+- [ ] The FIFA official source link opens in a new tab.
+- [ ] The data note explains that group-stage schedules are based on FIFA official information and shown in Japan time.
+- [ ] Home, Schedule, Settings, and Match Detail displays remain usable after the footer is added.
+
+## Meta / Sharing
+
+- [ ] `index.html` has `<title>W杯 観戦ナビ</title>`.
+- [ ] `index.html` has a meta description describing the W杯観戦ガイド.
+- [ ] `index.html` has `og:title`, `og:description`, `og:type`, and `og:url`.
+- [ ] `og:url` is `https://semflactal-high-roas.github.io/wc-watch-os/`.
+- [ ] `index.html` has `twitter:card`, `twitter:title`, and `twitter:description`.
+- [ ] No OGP image is required for this MVP; URL sharing should still show title and description where supported.
+
 ## Mobile Layout
 
 - [ ] At an iPhone-like width, no horizontal scrolling occurs.
