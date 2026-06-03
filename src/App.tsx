@@ -6,6 +6,7 @@ import { getJapanMatchImpactItems } from './logic/japanMatchImpact';
 import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japanScenario';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
+import { getMatchContextLabel, getRecommendationReason, getRecommendationTitle } from './logic/recommendationCopy';
 import { computeGroupStandings } from './logic/standings';
 import {
   getThirdPlaceLine,
@@ -51,9 +52,9 @@ const defaultPreferences: UserPreferences = {
 };
 
 const tabs: { id: MainScreen; label: string }[] = [
-  { id: 'home', label: 'Home' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'home', label: 'ホーム' },
+  { id: 'schedule', label: '日程' },
+  { id: 'settings', label: '設定' },
 ];
 
 const stageLabels: Record<MatchStage, string> = {
@@ -257,7 +258,7 @@ function App() {
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-24 pt-5">
         <header className="mb-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg">
-          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">World Cup Viewing OS</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">日本時間で見るW杯ガイド</p>
           <h1 className="mt-1 text-2xl font-bold">W杯 観戦ナビ</h1>
           <p className="mt-2 text-sm leading-6 text-slate-300">日本代表と応援する国の試合だけ、見る価値で整理</p>
         </header>
@@ -352,6 +353,13 @@ function HomeScreen({
 
   return (
     <div className="space-y-5">
+      <RecommendationHeroCard
+        match={homeRanking.matches[0] ?? null}
+        isFallback={homeRanking.isFallback}
+        teams={data.teams}
+        preferences={preferences}
+        onMatchSelect={onMatchSelect}
+      />
       <QualificationStatusSection summaries={qualificationSummaries} teams={data.teams} />
       <JapanMatchesSection matches={japanMatches} teams={data.teams} onMatchSelect={onMatchSelect} />
       {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
@@ -373,6 +381,71 @@ function HomeScreen({
 
       <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} trackedTeamIds={trackedTeamIds} />
     </div>
+  );
+}
+
+type RecommendationHeroCardProps = {
+  match: MatchWithImportance | null;
+  isFallback: boolean;
+  teams: Team[];
+  preferences: UserPreferences;
+  onMatchSelect: (matchId: string) => void;
+};
+
+function RecommendationHeroCard({ match, isFallback, teams, preferences, onMatchSelect }: RecommendationHeroCardProps) {
+  const title = getRecommendationTitle(isFallback);
+
+  if (!match) {
+    return (
+      <section className="space-y-2 rounded-2xl border border-cyan-300/30 bg-slate-900 p-4 shadow-lg">
+        <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">Start Here</p>
+        <h2 className="text-xl font-bold">{title}</h2>
+        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">現在表示できるおすすめ試合はありません</p>
+      </section>
+    );
+  }
+
+  const handleDownloadIcs = () => {
+    const content = createMatchIcsEvent(match, teams, {
+      importanceLabel: match.importanceLabel,
+      importanceScore: match.importanceScore,
+      reasonTags: match.reasonTags,
+    });
+    downloadIcsFile(`wc-watch-os-match-${match.id}.ics`, content);
+  };
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-cyan-300/40 bg-slate-900 p-4 shadow-lg">
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">Start Here</p>
+        <h2 className="text-xl font-bold">{title}</h2>
+      </div>
+
+      <div className="space-y-3 rounded-2xl bg-slate-950 p-4">
+        <div className="space-y-1">
+          <p className="text-lg font-bold leading-tight">{teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}</p>
+          <p className="text-sm font-semibold text-slate-300">{formatMatchDateTime(match)}</p>
+          <p className="text-sm text-slate-400">
+            {getMatchContextLabel(match)} / 重要度 {match.importanceLabel} / {match.importanceScore}点
+          </p>
+        </div>
+
+        <p className="text-sm leading-6 text-slate-200">{getRecommendationReason(match, teams, preferences)}</p>
+
+        <div className="flex flex-wrap gap-2">
+          {match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-800 px-2 py-1 text-xs text-slate-200">{tag}</span>)}
+        </div>
+
+        <div className="grid gap-2">
+          <button type="button" onClick={() => onMatchSelect(match.id)} className="rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200">
+            試合詳細を見る
+          </button>
+          <button type="button" onClick={handleDownloadIcs} className="rounded-xl border border-cyan-300/50 px-4 py-3 text-sm font-bold text-cyan-200 transition hover:bg-cyan-300/10">
+            カレンダーに追加
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -763,7 +836,7 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
   const selectedTeamNames = preferences.selectedTeamIds.filter((teamId) => matchIncludesTeam(match, teamId)).map((teamId) => teamName(teams, teamId));
   const viewingPoints = getViewingPoints(match, teams, preferences, trackedTeamIds);
   const impactItems = getImpactItems(match);
-  const backLabel = returnScreen === 'schedule' ? 'Scheduleに戻る' : 'Homeに戻る';
+  const backLabel = returnScreen === 'schedule' ? '日程に戻る' : 'ホームに戻る';
 
   const handleDownloadIcs = () => {
     const content = createMatchIcsEvent(match, teams, {
