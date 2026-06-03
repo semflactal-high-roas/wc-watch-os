@@ -42,18 +42,25 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] The top of Home shows `今日のおすすめ` when today's matches are available, or `次に見るべき試合` when fallback matches are shown.
 - [ ] If no recommendation match can be displayed, the fallback text `現在表示できるおすすめ試合はありません` is shown.
 - [ ] The recommendation card shows the match pairing, flags, kickoff time, `日本時間`, context label, importance label, and importance score.
+- [ ] The recommendation card shows a time-of-day label such as `朝5:00キックオフ`.
+- [ ] The recommendation card shows a viewing hint such as `出勤・通学前に見やすい時間帯`.
 - [ ] The recommendation card shows short reason text and reason tags.
 - [ ] Tapping `試合詳細を見る` opens Match Detail for the recommended match.
 - [ ] Tapping `カレンダーに追加` downloads a `.ics` file for the recommended match.
+- [ ] Tapping `この試合を共有` copies a share text for the recommended match.
+- [ ] Copy success shows `共有文をコピーしました`.
+- [ ] If copy fails, an error message explains that manual copy is needed.
 - [ ] Qualification status cards are visible.
 - [ ] The `日本代表の試合` section is visible.
 - [ ] The `日本代表の試合` section shows 3 Japan matches.
 - [ ] Japan match cards show country names with flag emoji where available.
+- [ ] Japan match cards show time-of-day labels.
 - [ ] The `日本代表 突破シナリオ` section is visible.
 - [ ] The `Group F 日本の組` section is visible.
 - [ ] Group F shows Netherlands, Japan, Sweden, and Tunisia.
 - [ ] Group F team names remain readable even if a flag emoji does not render.
 - [ ] The `今日見るべき試合ランキング` section is visible.
+- [ ] Ranking match cards show time-of-day labels.
 - [ ] Standings summary is visible.
 - [ ] No `データエラー` is visible anywhere on the screen.
 
@@ -75,6 +82,9 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] Groups A-L matches can be found when `すべて` is selected.
 - [ ] Group K and Group L matches are visible when `すべて` is selected.
 - [ ] Each match card shows date and kickoff time in `日本時間` wording.
+- [ ] Each match card shows a time-of-day label and viewing hint.
+- [ ] `05:00` is shown as `朝5:00キックオフ`.
+- [ ] `02:00` is shown as `深夜2:00キックオフ`.
 - [ ] Match cards show country names with flag emoji where available.
 - [ ] Tapping a filtered match card opens Match Detail.
 - [ ] The group standings section remains visible and is not filtered.
@@ -97,12 +107,33 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] The match card title is shown with country names and flag emoji where available.
 - [ ] date, kickoff time, round, score, and importance are shown.
 - [ ] Kickoff time uses `日本時間` wording.
+- [ ] The time-of-day label is shown, for example `朝5:00キックオフ` or `深夜2:00キックオフ`.
+- [ ] A viewing hint is shown, for example `リアタイするなら睡眠コスト高め`.
 - [ ] Viewing points are shown.
 - [ ] Win/draw/loss impact is shown.
 - [ ] The calendar button says `カレンダーに追加`.
 - [ ] The calendar helper text explains that a calendar app may need to open the downloaded file.
+- [ ] The `この試合を共有` button is visible.
+- [ ] Tapping `この試合を共有` copies a share text.
+- [ ] Copy success shows `共有文をコピーしました`.
+- [ ] The share text includes matchup, flags, Japan time, time-of-day label, importance, app URL, and `#W杯観戦ナビ`.
 - [ ] The user can return to Home or Schedule.
 - [ ] After returning, the previous screen is still usable and layout is not broken.
+
+## Share Copy
+
+- [ ] Home recommendation card `この試合を共有` copies text to the clipboard.
+- [ ] Match Detail `この試合を共有` copies text to the clipboard.
+- [ ] The share text starts with `⚽ W杯 観戦ナビ`.
+- [ ] The share text includes the matchup with country names and flags when available.
+- [ ] The share text includes `YYYY-MM-DD HH:mm 日本時間`.
+- [ ] The share text includes the time-of-day label in parentheses.
+- [ ] The share text includes `Group F` or the appropriate round label.
+- [ ] The share text includes an importance label.
+- [ ] The share text includes a short recommendation reason.
+- [ ] The share text includes `https://semflactal-high-roas.github.io/wc-watch-os/`.
+- [ ] The share text includes `#W杯観戦ナビ`.
+- [ ] No automatic X posting or LINE sending occurs.
 
 ## Calendar Download
 
@@ -139,6 +170,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] Bottom navigation is tappable.
 - [ ] Schedule filter buttons wrap cleanly and remain tappable.
 - [ ] Recommendation card buttons are large enough to tap comfortably and do not conflict with each other.
+- [ ] Share and calendar buttons remain easy to tap on mobile.
 - [ ] Card text does not collapse or overflow badly.
 - [ ] Buttons are large enough to tap comfortably.
 - [ ] Home, Schedule, Settings, and Match Detail core flows can be used on mobile.
