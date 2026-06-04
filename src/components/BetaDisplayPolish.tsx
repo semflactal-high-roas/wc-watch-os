@@ -7,9 +7,9 @@ const plainDatePattern = /^(\d{4}-\d{2}-\d{2})$/;
 const calendarHelperText = '端末やブラウザによっては、ダウンロード後にカレンダーアプリで開く操作が必要です。通知時間はカレンダーアプリ側で調整してください。';
 
 const formatVisibleText = (text: string): string => {
-  const withDateTime = text.replace(dateTimePattern, (_, date: string, time: string) => `${formatJstDateWithWeekday(date)}${time} 日本時間`);
+  const withDateTime = text.replace(dateTimePattern, (_match: string, date: string, time: string) => `${formatJstDateWithWeekday(date)}${time} 日本時間`);
   const plainDate = withDateTime.match(plainDatePattern);
-  return plainDate ? formatJstDateWithWeekday(plainDate[1]) : withDateTime;
+  return plainDate?.[1] ? formatJstDateWithWeekday(plainDate[1]) : withDateTime;
 };
 
 const findElementByText = (text: string): HTMLElement | null => {
