@@ -84,16 +84,11 @@ const polishStaticCopy = () => {
   document.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
     const label = button.textContent?.trim();
     if (label === 'この試合を共有') {
-      ensureSiblingAfter(button, `share-helper-${Math.random().toString(36).slice(2)}`, 'p', 'text-xs leading-5 text-slate-400', 'XやLINEに貼れる共有文をコピーします。');
+      ensureSiblingAfter(button, 'share-helper', 'p', 'text-xs leading-5 text-slate-400', 'XやLINEに貼れる共有文をコピーします。');
     }
 
     if (label === 'カレンダーに追加') {
-      const nextParagraph = button.parentElement?.querySelector<HTMLElement>('[data-beta-polish="calendar-helper"]');
-      if (nextParagraph) {
-        nextParagraph.textContent = calendarHelperText;
-      } else {
-        ensureSiblingAfter(button, 'calendar-helper', 'p', 'text-xs leading-5 text-slate-400', calendarHelperText);
-      }
+      ensureSiblingAfter(button, 'calendar-helper', 'p', 'text-xs leading-5 text-slate-400', calendarHelperText);
     }
   });
 };
