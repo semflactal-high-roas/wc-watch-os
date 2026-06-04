@@ -1,3 +1,4 @@
+import { formatMatchDateTime } from './dateTimeDisplay';
 import { formatKickoffWithTimeOfDay } from './timeOfDayLabel';
 import type { Match, Team } from '../types';
 
@@ -27,7 +28,7 @@ export const buildMatchShareText = (match: Match, teams: Team[], options: MatchS
   return [
     '⚽ W杯 観戦ナビ',
     matchup,
-    `${match.date} ${match.kickoffTimeJST} 日本時間（${kickoffLabel}）`,
+    `${formatMatchDateTime(match)}（${kickoffLabel}）`,
     `${formatMatchStage(match)}${importance}`,
     '',
     options.recommendationReason ?? '日本時間で見る価値を整理した試合です。',
