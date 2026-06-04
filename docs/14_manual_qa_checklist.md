@@ -25,6 +25,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 ## User-Facing Labels
 
 - [ ] Header eyebrow shows `日本時間で見るW杯ガイド`.
+- [ ] Header shows the badge `2026 FIFA World Cup 対応`.
 - [ ] Site name shows `W杯 観戦ナビ`.
 - [ ] Header copy shows `日本代表と応援する国の試合だけ、見る価値で整理`.
 - [ ] Bottom navigation labels are `ホーム`, `日程`, and `設定`.
@@ -32,36 +33,46 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] Match Detail uses `カレンダーに追加` instead of `ICSをダウンロード`.
 - [ ] Main date/time displays use `日本時間` instead of `JST`.
 - [ ] Main status labels use `これから` / `終了` instead of `未実施` / `played`.
-- [ ] Major team names show flag emoji when available, for example `Japan 🇯🇵` and `Netherlands 🇳🇱`.
+- [ ] Major team names show flag emoji when available.
 - [ ] If a flag emoji is not rendered by the device, the country name is still readable.
+
+## Beta Clarification Labels
+
+- [ ] Footer or data information area shows `非公式の個人制作ツールです。日程はFIFA公式情報をもとに日本時間で表示しています。`.
+- [ ] The existing `最終更新` display is still visible.
+- [ ] The existing `日程ソース：FIFA公式` link is still visible and opens in a new tab.
+- [ ] The 3rd-place qualification section explains `各組3位のうち、成績上位8チームが通過します。ここでは現在の8番目をボーダーとして表示します。`.
+- [ ] Schedule screen shows `日付と時刻はすべて日本時間で表示しています。` near the match list or filters.
+- [ ] Settings screen explains that supported team settings affect Home recommendations and Schedule filters.
+- [ ] Share buttons show `XやLINEに貼れる共有文をコピーします。` nearby.
+- [ ] Calendar helper text includes `通知時間はカレンダーアプリ側で調整してください。`.
+
+## Weekday Date Display
+
+- [ ] Home recommendation card dates include weekdays, for example `2026-06-15（月）05:00 日本時間`.
+- [ ] Japan match cards include weekdays in date/time display.
+- [ ] Match ranking cards include weekdays in date/time display.
+- [ ] Schedule match cards include weekdays in date/time display.
+- [ ] Match Detail date includes a weekday.
+- [ ] Japan scenario next kickoff display includes a weekday.
+- [ ] Share copy text includes a weekday, for example `2026-06-15（月）05:00 日本時間（朝5:00キックオフ）`.
+- [ ] Existing time-of-day labels remain visible, for example `朝5:00キックオフ` and `深夜2:00キックオフ`.
 
 ## Home Screen
 
 - [ ] The page renders without a browser or app error.
-- [ ] Header shows `W杯 観戦ナビ`.
 - [ ] The top of Home shows `今日のおすすめ` when today's matches are available, or `次に見るべき試合` when fallback matches are shown.
-- [ ] If no recommendation match can be displayed, the fallback text `現在表示できるおすすめ試合はありません` is shown.
 - [ ] The recommendation card shows the match pairing, flags, kickoff time, `日本時間`, context label, importance label, and importance score.
-- [ ] The recommendation card shows a time-of-day label such as `朝5:00キックオフ`.
-- [ ] The recommendation card shows a viewing hint such as `出勤・通学前に見やすい時間帯`.
-- [ ] The recommendation card shows short reason text and reason tags.
 - [ ] Tapping `試合詳細を見る` opens Match Detail for the recommended match.
 - [ ] Tapping `カレンダーに追加` downloads a `.ics` file for the recommended match.
 - [ ] Tapping `この試合を共有` copies a share text for the recommended match.
 - [ ] Copy success shows `共有文をコピーしました`.
-- [ ] If copy fails, an error message explains that manual copy is needed.
 - [ ] Qualification status cards are visible.
-- [ ] The `日本代表の試合` section is visible.
-- [ ] The `日本代表の試合` section shows 3 Japan matches.
-- [ ] Japan match cards show country names with flag emoji where available.
-- [ ] Japan match cards show time-of-day labels.
+- [ ] The `日本代表の試合` section is visible and shows 3 Japan matches.
 - [ ] The `日本代表 突破シナリオ` section is visible.
-- [ ] The `Group F 日本の組` section is visible.
-- [ ] Group F shows Netherlands, Japan, Sweden, and Tunisia.
-- [ ] Group F team names remain readable even if a flag emoji does not render.
+- [ ] The `Group F 日本の組` section is visible and shows Netherlands, Japan, Sweden, and Tunisia.
 - [ ] The `今日見るべき試合ランキング` section is visible.
-- [ ] Ranking match cards show time-of-day labels.
-- [ ] Standings summary is visible.
+- [ ] Standings summary and 3rd-place line are visible.
 - [ ] No `データエラー` is visible anywhere on the screen.
 
 ## Schedule Screen
@@ -69,23 +80,14 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] The `日程` tab can be opened from the bottom navigation.
 - [ ] Schedule filter buttons are visible above the match list.
 - [ ] The initial selected filter is `今日・次の試合`.
-- [ ] Filter buttons show counts for `今日・次の試合`, `日本代表`, `応援する国`, `日本と同じ組`, and `すべて`.
-- [ ] `今日・次の試合` shows today's matches when available, or the next match date when no today matches exist.
-- [ ] If today has no target matches, the message `今日の対象試合がないため、次の開催日の試合を表示しています。` is shown.
 - [ ] `日本代表` filters to the 3 Japan matches.
 - [ ] `応援する国` filters to matches involving the saved main supported team or selected teams.
-- [ ] If supported teams are not configured, `応援する国` shows `応援する国が未設定です。設定画面で応援する国を選ぶと、関連試合を絞り込めます。`.
+- [ ] If supported teams are not configured, guidance text asks the user to configure supported teams.
 - [ ] `日本と同じ組` filters to the 6 Group F matches.
 - [ ] `すべて` shows all 72 group-stage matches.
 - [ ] The displayed match count updates after each filter change.
-- [ ] Group-stage matches are visible.
 - [ ] Groups A-L matches can be found when `すべて` is selected.
 - [ ] Group K and Group L matches are visible when `すべて` is selected.
-- [ ] Each match card shows date and kickoff time in `日本時間` wording.
-- [ ] Each match card shows a time-of-day label and viewing hint.
-- [ ] `05:00` is shown as `朝5:00キックオフ`.
-- [ ] `02:00` is shown as `深夜2:00キックオフ`.
-- [ ] Match cards show country names with flag emoji where available.
 - [ ] Tapping a filtered match card opens Match Detail.
 - [ ] The group standings section remains visible and is not filtered.
 - [ ] No `データエラー` is visible after changing filters.
@@ -97,43 +99,22 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] `メインで応援する国` can be selected.
 - [ ] `一緒に追いかける国` choices can be selected.
 - [ ] Japan, Netherlands, Sweden, and Tunisia are visible as team choices.
-- [ ] Team choices show flag emoji where available, while the country name remains readable.
 - [ ] After changing preferences and returning Home, the main supported team setting is reflected.
 - [ ] After refreshing the browser, preferences remain saved through `localStorage`.
 
 ## Match Detail Screen
 
 - [ ] Tapping a match card or recommendation detail button opens the detail screen.
-- [ ] The match card title is shown with country names and flag emoji where available.
+- [ ] The match title is shown with country names and flag emoji where available.
 - [ ] date, kickoff time, round, score, and importance are shown.
 - [ ] Kickoff time uses `日本時間` wording.
-- [ ] The time-of-day label is shown, for example `朝5:00キックオフ` or `深夜2:00キックオフ`.
-- [ ] A viewing hint is shown, for example `リアタイするなら睡眠コスト高め`.
+- [ ] The time-of-day label and viewing hint are shown.
 - [ ] Viewing points are shown.
 - [ ] Win/draw/loss impact is shown.
 - [ ] The calendar button says `カレンダーに追加`.
-- [ ] The calendar helper text explains that a calendar app may need to open the downloaded file.
-- [ ] The `この試合を共有` button is visible.
-- [ ] Tapping `この試合を共有` copies a share text.
-- [ ] Copy success shows `共有文をコピーしました`.
-- [ ] The share text includes matchup, flags, Japan time, time-of-day label, importance, app URL, and `#W杯観戦ナビ`.
+- [ ] The `この試合を共有` button is visible and copies a share text.
+- [ ] The share text includes matchup, flags, Japan time, weekday, time-of-day label, importance, app URL, and `#W杯観戦ナビ`.
 - [ ] The user can return to Home or Schedule.
-- [ ] After returning, the previous screen is still usable and layout is not broken.
-
-## Share Copy
-
-- [ ] Home recommendation card `この試合を共有` copies text to the clipboard.
-- [ ] Match Detail `この試合を共有` copies text to the clipboard.
-- [ ] The share text starts with `⚽ W杯 観戦ナビ`.
-- [ ] The share text includes the matchup with country names and flags when available.
-- [ ] The share text includes `YYYY-MM-DD HH:mm 日本時間`.
-- [ ] The share text includes the time-of-day label in parentheses.
-- [ ] The share text includes `Group F` or the appropriate round label.
-- [ ] The share text includes an importance label.
-- [ ] The share text includes a short recommendation reason.
-- [ ] The share text includes `https://semflactal-high-roas.github.io/wc-watch-os/`.
-- [ ] The share text includes `#W杯観戦ナビ`.
-- [ ] No automatic X posting or LINE sending occurs.
 
 ## Calendar Download
 
@@ -142,7 +123,6 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] The file name includes the match id.
 - [ ] The file can be opened in a calendar app.
 - [ ] The event appears at the expected Japan time.
-- [ ] Example: `2026-06-15 05:00 日本時間` may be stored as UTC inside the ICS, but should display correctly in a calendar app.
 - [ ] On a device using Japan time zone, confirm the event displays in Japan time.
 
 ## Data Source Display
@@ -153,7 +133,6 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] The FIFA official source link can be opened.
 - [ ] The FIFA official source link opens in a new tab.
 - [ ] The data note explains that group-stage schedules are based on FIFA official information and shown in Japan time.
-- [ ] Home, Schedule, Settings, and Match Detail displays remain usable after the footer is added.
 
 ## Meta / Sharing
 
@@ -172,7 +151,6 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] Recommendation card buttons are large enough to tap comfortably and do not conflict with each other.
 - [ ] Share and calendar buttons remain easy to tap on mobile.
 - [ ] Card text does not collapse or overflow badly.
-- [ ] Buttons are large enough to tap comfortably.
 - [ ] Home, Schedule, Settings, and Match Detail core flows can be used on mobile.
 
 ## QA Result Record
@@ -188,3 +166,5 @@ Result: OK / NG / Needs follow-up
 Issues found:
 Next fix PR:
 ```
+
+After manual QA is complete, confirm the beta release conditions in `docs/15_beta_release_checklist.md`.
