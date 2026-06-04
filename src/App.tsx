@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadAppData } from './data/loader';
 import { filterTodayMatches, filterUpcomingMatches } from './logic/dateFilters';
+import { formatJstDateWithWeekday, formatMatchDateTime } from './logic/dateTimeDisplay';
 import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
 import { getJapanMatchImpactItems } from './logic/japanMatchImpact';
 import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japanScenario';
@@ -32,6 +33,7 @@ type HomeRanking = {
 
 const preferencesKey = 'wc-watch-os:userPreferences';
 const japanTeamId = 'JPN';
+const calendarHelperText = '端末やブラウザによっては、ダウンロード後にカレンダーアプリで開く操作が必要です。通知時間はカレンダーアプリ側で調整してください。';
 
 const defaultPreferences: UserPreferences = {
   mainFavoriteTeamId: '',
@@ -85,8 +87,6 @@ const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) =
 const scoreLabel = (match: Match): string => (!match.played || match.homeScore === null || match.awayScore === null ? 'これから' : `${match.homeScore} - ${match.awayScore}`);
 const matchStatusLabel = (match: Match): string => (match.played ? '終了' : 'これから');
 const formatRecord = (row: StandingRow): string => `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
-
-const formatMatchDateTime = (match: Match): string => `${match.date} ${match.kickoffTimeJST} 日本時間`;
 
 const formatMatchStage = (match: Match): string => {
   if (match.stage === 'group' && match.groupId) return `Group ${match.groupId}`;
@@ -204,6 +204,9 @@ function App() {
       <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-24 pt-5">
         <header className="mb-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">日本時間で見るW杯ガイド</p>
+          <span className="mt-2 inline-flex w-fit rounded-full border border-cyan-300/40 bg-cyan-300/10 px-2 py-1 text-xs font-semibold text-cyan-200">
+            2026 FIFA World Cup 対応
+          </span>
           <h1 className="mt-1 text-2xl font-bold">W杯 観戦ナビ</h1>
           <p className="mt-2 text-sm leading-6 text-slate-300">日本代表と応援する国の試合だけ、見る価値で整理</p>
         </header>
@@ -396,6 +399,7 @@ function RecommendationHeroCard({ match, isFallback, teams, preferences, onMatch
           <button type="button" onClick={handleDownloadIcs} className="rounded-xl border border-cyan-300/50 px-4 py-3 text-sm font-bold text-cyan-200 transition hover:bg-cyan-300/10">
             カレンダーに追加
           </button>
+          <p className="text-xs leading-5 text-slate-400">{calendarHelperText}</p>
           <ShareButton onClick={handleShare} status={shareStatus} />
         </div>
       </div>
@@ -421,6 +425,7 @@ function ShareButton({ onClick, status }: { onClick: () => void; status: ShareSt
       <button type="button" onClick={onClick} className="w-full rounded-xl border border-slate-600 px-4 py-3 text-sm font-bold text-slate-100 transition hover:bg-slate-800">
         この試合を共有
       </button>
+      <p className="text-xs leading-5 text-slate-400">XやLINEに貼れる共有文をコピーします。</p>
       {status === 'copied' && <p className="text-xs font-semibold text-emerald-300">共有文をコピーしました</p>}
       {status === 'error' && <p className="text-xs font-semibold text-rose-300">コピーできませんでした。手動で選択してコピーしてください。</p>}
     </div>
@@ -483,7 +488,7 @@ function JapanScenarioSection({ scenario, teams }: { scenario: JapanScenarioSumm
         <Metric label="次の日本戦" value={scenario.nextOpponentName ? `${scenario.nextOpponentName}戦` : '未登録'} />
         <Metric label="次戦キックオフ" value={scenario.nextMatch ? formatMatchDateTime(scenario.nextMatch) : '未登録'} />
       </div>
-      <TimeOfDayInfo match={scenario.nextMatch ?? { id: 'fallback', homeTeamId: japanTeamId, awayTeamId: japanTeamId, homeScore: null, awayScore: null, played: false, date: '', kickoffTimeJST: '', stage: 'group', groupId: 'F' }} />
+      {scenario.nextMatch && <TimeOfDayInfo match={scenario.nextMatch} />}
       <div className="flex flex-wrap gap-2">
         {scenario.rivals.map((team) => <span key={team.id} className="rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200">{teamName(teams, team.id)}</span>)}
       </div>
@@ -600,6 +605,7 @@ function ScheduleScreen({ data, preferences, rankedMatches, standings, today, on
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">試合一覧</h2>
           <p className="text-sm leading-6 text-slate-300">見たい切り口を選んで、全72試合から必要な試合だけを絞り込めます。</p>
+          <p className="text-xs leading-5 text-cyan-200">日付と時刻はすべて日本時間で表示しています。</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {filterOptions.map((option) => {
@@ -636,7 +642,7 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: { data: AppD
     <section className="space-y-5 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">応援する国の設定</h2>
-        <p className="text-sm leading-6 text-slate-300">応援する国の設定はこの端末のブラウザに保存されます。</p>
+        <p className="text-sm leading-6 text-slate-300">応援する国の設定はこの端末のブラウザに保存されます。応援する国を設定すると、Homeのおすすめ試合や日程フィルターに反映されます。メインで応援する国はおすすめ試合の優先度に強く反映されます。一緒に追いかける国は、日程フィルターや関連試合に反映されます。</p>
       </div>
       <label className="block space-y-2">
         <span className="text-sm font-semibold text-slate-200">メインで応援する国</span>
@@ -724,7 +730,7 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
           <h2 className="text-2xl font-bold leading-tight">{teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}</h2>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <Metric label="日付" value={match.date} />
+          <Metric label="日付" value={formatJstDateWithWeekday(match.date)} />
           <Metric label="キックオフ" value={`${match.kickoffTimeJST} 日本時間`} />
           <Metric label="時間帯" value={formatKickoffWithTimeOfDay(match.kickoffTimeJST)} />
           <Metric label="ラウンド" value={formatMatchStage(match)} />
@@ -733,8 +739,8 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
         </div>
         <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-cyan-100">{getJstViewingHint(match.kickoffTimeJST)}</p>
         <button type="button" onClick={handleDownloadIcs} className="w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200">カレンダーに追加</button>
+        <p className="text-xs leading-5 text-slate-400">{calendarHelperText}</p>
         <ShareButton onClick={handleShare} status={shareStatus} />
-        <p className="text-xs leading-5 text-slate-400">端末やブラウザによっては、ダウンロード後にカレンダーアプリで開く操作が必要です。</p>
         <div className="flex flex-wrap gap-2">{match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}</div>
       </section>
 
@@ -811,7 +817,7 @@ function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: { thirdPla
     <div className="space-y-3 rounded-xl bg-slate-800 p-3">
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-cyan-300">3位通過ライン</h3>
-        <p className="text-sm leading-6 text-slate-300">8位を現在の通過ラインとして表示します。</p>
+        <p className="text-sm leading-6 text-slate-300">各組3位のうち、成績上位8チームが通過します。ここでは現在の8番目をボーダーとして表示します。</p>
       </div>
       <div className="rounded-xl border border-cyan-300/30 bg-slate-900 p-3">
         <p className="text-xs font-semibold text-slate-400">現在の8位ライン</p>
