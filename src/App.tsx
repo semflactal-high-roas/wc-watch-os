@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import ProvisionalTournamentBracketBeta from './ProvisionalTournamentBracketBeta';
 import { loadAppData } from './data/loader';
 import { filterTodayMatches, filterUpcomingMatches } from './logic/dateFilters';
 import { formatJstDateWithWeekday, formatMatchDateTime } from './logic/dateTimeDisplay';
@@ -324,6 +325,7 @@ function HomeScreen({
       </section>
 
       <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} trackedTeamIds={trackedTeamIds} />
+      <ProvisionalTournamentBracketBeta />
     </div>
   );
 }
