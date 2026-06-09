@@ -25,7 +25,10 @@ export default function ProvisionalTournamentBracketBeta() {
       rows: computeGroupStandings(
         group.teamIds,
         data.matches.filter(
-          (match) => group.teamIds.includes(match.homeTeamId) && group.teamIds.includes(match.awayTeamId),
+          (match) =>
+            match.stage === 'group' &&
+            group.teamIds.includes(match.homeTeamId) &&
+            group.teamIds.includes(match.awayTeamId),
         ),
       ),
     }));
