@@ -111,8 +111,8 @@ export const PROVISIONAL_R32_SLOT_DEFINITIONS: Round32Definition[] = [
 ];
 
 export const OFFICIAL_R16_CONNECTIONS: WinnerRoundDefinition[] = [
-  { id: 'R16-89', homeMatchId: 'R32-73', awayMatchId: 'R32-75' },
-  { id: 'R16-90', homeMatchId: 'R32-74', awayMatchId: 'R32-77' },
+  { id: 'R16-89', homeMatchId: 'R32-74', awayMatchId: 'R32-77' },
+  { id: 'R16-90', homeMatchId: 'R32-73', awayMatchId: 'R32-75' },
   { id: 'R16-91', homeMatchId: 'R32-76', awayMatchId: 'R32-78' },
   { id: 'R16-92', homeMatchId: 'R32-79', awayMatchId: 'R32-80' },
   { id: 'R16-93', homeMatchId: 'R32-83', awayMatchId: 'R32-84' },

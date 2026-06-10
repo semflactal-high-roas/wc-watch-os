@@ -110,8 +110,8 @@ describe('buildProvisionalTournamentTree', () => {
       matches.map((match) => [match.id, ...winnerSourceIds([match])]);
 
     expect(connections(rounds.round16)).toEqual([
-      ['R16-89', 'R32-73', 'R32-75'],
-      ['R16-90', 'R32-74', 'R32-77'],
+      ['R16-89', 'R32-74', 'R32-77'],
+      ['R16-90', 'R32-73', 'R32-75'],
       ['R16-91', 'R32-76', 'R32-78'],
       ['R16-92', 'R32-79', 'R32-80'],
       ['R16-93', 'R32-83', 'R32-84'],
