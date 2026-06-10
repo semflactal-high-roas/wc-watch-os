@@ -35,7 +35,7 @@
 | 重要度S/A/B/C | 一部実装 | `src/logic/matchImportance.ts` でS/A/B/Cを決定論的に算出。主要UIでは `高 / 中 / 低` 表示へ変換している箇所あり |
 | グループ順位表 | 実装済み | `src/logic/standings.ts` と `src/App.tsx` の順位表示を確認 |
 | 3位通過ライン | 実装済み | `src/logic/thirdPlaceRanking.ts`、`thirdPlaceLine.ts` と表示を確認。詳細タイブレークは未反映 |
-| 暫定トーナメント表β | 一部実装 | 専用の「山」画面で現在順位をR32枠へ差し込み、R16〜Finalまで勝者枠で接続。3位通過枠・公式R32枠・正式組み合わせは未確定で、勝敗予想は行わない |
+| 暫定トーナメント表β | 一部実装 | 専用の「トーナメント」画面で推し国の道のりを先に表示し、R32〜準々決勝をブロックA〜Dの縦型アコーディオン、準決勝〜Finalを勝者枠の接続として表示。3位通過枠・公式R32枠・正式組み合わせは未確定で、勝敗予想は行わない |
 | 試合詳細 | 実装済み | `src/App.tsx` のMatch Detail画面を確認 |
 | ICSカレンダー追加 | 実装済み | `src/logic/ics.ts` とHome・Match Detailの導線を確認 |
 | 共有文コピー | 実装済み | `src/logic/shareCopy.ts` とHome・Match Detailの導線を確認 |

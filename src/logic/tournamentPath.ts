@@ -32,10 +32,31 @@ export type FavoriteTournamentPath = {
   matchIds: string[];
 } | null;
 
+export type TournamentBlockId = 'A' | 'B' | 'C' | 'D';
+
+export type TournamentBlock = {
+  id: TournamentBlockId;
+  label: string;
+  round32: BracketMatch[];
+  round16: BracketMatch[];
+  quarterfinal: BracketMatch;
+  semifinalId: string;
+  isFavoriteBlock: boolean;
+};
+
+export type SemifinalConnection = {
+  match: BracketMatch;
+  blockIds: [TournamentBlockId, TournamentBlockId];
+  isFavoriteConnection: boolean;
+};
+
 export type ProvisionalTournamentTree = {
   status: 'unofficial_provisional_beta';
   officialRound32SlotsConfirmed: false;
   rounds: Record<TournamentRound, BracketMatch[]>;
+  blocks: TournamentBlock[];
+  semifinalConnections: SemifinalConnection[];
+  finalConnection: BracketMatch;
   favoritePath: FavoriteTournamentPath;
 };
 
@@ -157,6 +178,43 @@ const buildWinnerRound = (
   return matches;
 };
 
+const winnerMatchIds = (match: BracketMatch): string[] =>
+  [match.homeSlot, match.awaySlot].flatMap((slot) => (slot.type === 'winner' ? [slot.matchId] : []));
+
+const matchesByIds = (matches: BracketMatch[], ids: string[]): BracketMatch[] =>
+  ids.flatMap((id) => {
+    const match = matches.find((candidate) => candidate.id === id);
+    return match ? [match] : [];
+  });
+
+const blockIds: TournamentBlockId[] = ['A', 'B', 'C', 'D'];
+
+const buildTournamentBlocks = (
+  round32: BracketMatch[],
+  round16: BracketMatch[],
+  quarterfinals: BracketMatch[],
+  semifinals: BracketMatch[],
+): TournamentBlock[] =>
+  quarterfinals.flatMap((quarterfinal, index) => {
+    const id = blockIds[index];
+    if (!id) return [];
+
+    const blockRound16 = matchesByIds(round16, winnerMatchIds(quarterfinal));
+    const blockRound32 = matchesByIds(round32, blockRound16.flatMap(winnerMatchIds));
+    const semifinal = semifinals.find((match) => winnerMatchIds(match).includes(quarterfinal.id));
+    if (!semifinal) return [];
+
+    return [{
+      id,
+      label: `ブロック${id}`,
+      round32: blockRound32,
+      round16: blockRound16,
+      quarterfinal,
+      semifinalId: semifinal.id,
+      isFavoriteBlock: quarterfinal.isFavoritePath,
+    }];
+  });
+
 export const buildProvisionalTournamentTree = ({
   standingsByGroup,
   groups,
@@ -184,6 +242,23 @@ export const buildProvisionalTournamentTree = ({
   const quarterfinal = buildWinnerRound('quarterfinal', 'QF', round16);
   const semifinal = buildWinnerRound('semifinal', 'SF', quarterfinal);
   const final = buildWinnerRound('final', 'F', semifinal);
+  const blocks = buildTournamentBlocks(round32, round16, quarterfinal, semifinal);
+  const semifinalConnections = semifinal.flatMap<SemifinalConnection>((match) => {
+    const connectedBlockIds = blocks
+      .filter((block) => winnerMatchIds(match).includes(block.quarterfinal.id))
+      .map((block) => block.id);
+    const firstBlockId = connectedBlockIds[0];
+    const secondBlockId = connectedBlockIds[1];
+    if (!firstBlockId || !secondBlockId) return [];
+
+    return [{
+      match,
+      blockIds: [firstBlockId, secondBlockId],
+      isFavoriteConnection: match.isFavoritePath,
+    }];
+  });
+  const finalConnection = final[0];
+  if (!finalConnection) throw new Error('Provisional tournament tree requires a final match.');
   const allRounds = [...round32, ...round16, ...quarterfinal, ...semifinal, ...final];
   const favoriteMatchIds = allRounds.filter((match) => match.isFavoritePath).map((match) => match.id);
 
@@ -191,6 +266,9 @@ export const buildProvisionalTournamentTree = ({
     status: 'unofficial_provisional_beta',
     officialRound32SlotsConfirmed: false,
     rounds: { round32, round16, quarterfinal, semifinal, final },
+    blocks,
+    semifinalConnections,
+    finalConnection,
     favoritePath: mainFavoriteTeamId && favoriteMatchIds.length > 0 ? { teamId: mainFavoriteTeamId, matchIds: favoriteMatchIds } : null,
   };
 };

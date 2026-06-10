@@ -132,4 +132,28 @@ describe('buildProvisionalTournamentTree', () => {
     expect(tree.favoritePath).toBeNull();
     expect(allMatches.every((match) => !match.isFavoritePath)).toBe(true);
   });
+
+  it('builds four connected blocks from R32 through the quarterfinals', () => {
+    const tree = buildTree();
+
+    expect(tree.blocks).toHaveLength(4);
+    for (const block of tree.blocks) {
+      expect(block.round32).toHaveLength(4);
+      expect(block.round16).toHaveLength(2);
+      expect(block.quarterfinal).toBeDefined();
+    }
+
+    expect(tree.semifinalConnections.map((connection) => connection.blockIds)).toEqual([
+      ['A', 'B'],
+      ['C', 'D'],
+    ]);
+  });
+
+  it('marks only the block containing the favorite as the favorite block', () => {
+    const favoriteTree = buildTree('A-1');
+    const noFavoriteTree = buildTree('not-in-round32');
+
+    expect(favoriteTree.blocks.filter((block) => block.isFavoriteBlock)).toHaveLength(1);
+    expect(noFavoriteTree.blocks.every((block) => !block.isFavoriteBlock)).toBe(true);
+  });
 });
