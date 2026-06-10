@@ -44,7 +44,7 @@ const defaultPreferences: UserPreferences = {
 const tabs: { id: MainScreen; label: string }[] = [
   { id: 'home', label: 'ホーム' },
   { id: 'schedule', label: '日程' },
-  { id: 'tournament', label: '山' },
+  { id: 'tournament', label: 'トーナメント' },
   { id: 'settings', label: '設定' },
 ];
 
@@ -340,11 +340,11 @@ function HomeScreen({
       <section className="space-y-3 rounded-2xl border border-violet-300/30 bg-slate-900 p-4 shadow-lg">
         <div>
           <p className="text-xs font-semibold text-violet-300">暫定トーナメント表β</p>
-          <h2 className="mt-1 text-lg font-semibold">現在の山を見る</h2>
+          <h2 className="mt-1 text-lg font-semibold">暫定トーナメント表β</h2>
         </div>
-        <p className="text-sm leading-6 text-slate-300">推し国の暫定R32カードと、決勝までつながる山を独立画面で確認できます。</p>
+        <p className="text-sm leading-6 text-slate-300">現在順位ベースで、決勝トーナメントの想定組み合わせを確認できます。</p>
         <button type="button" onClick={onTournamentOpen} className="w-full rounded-xl bg-violet-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-violet-200">
-          現在の山を見る
+          トーナメント表を見る
         </button>
       </section>
     </div>
