@@ -17,7 +17,8 @@ import { getThirdPlaceLine } from './logic/thirdPlaceLine';
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
 import type { AppData, Match, MatchStage, QualificationSummary, StandingRow, Team } from './types';
 
-type MainScreen = 'home' | 'schedule' | 'tournament' | 'settings';
+type MainScreen = 'home' | 'schedule' | 'standings' | 'tournament' | 'settings';
+type MainTab = Exclude<MainScreen, 'settings'>;
 type Screen = MainScreen | 'matchDetail';
 type GroupStanding = { groupId: string; rows: StandingRow[] };
 type ShareStatus = 'idle' | 'copied' | 'error';
@@ -41,11 +42,11 @@ const defaultPreferences: UserPreferences = {
   selectedTeamIds: [],
 };
 
-const tabs: { id: MainScreen; label: string }[] = [
+const tabs: { id: MainTab; label: string }[] = [
   { id: 'home', label: 'ホーム' },
   { id: 'schedule', label: '日程' },
+  { id: 'standings', label: '順位' },
   { id: 'tournament', label: 'トーナメント' },
-  { id: 'settings', label: '設定' },
 ];
 
 const stageLabels: Record<MatchStage, string> = {
@@ -172,6 +173,12 @@ function App() {
   }, [data, preferences, today]);
 
   const japanMatches = useMemo(() => sortMatchesByDate(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId))), [rankedMatches]);
+  const favoriteNextMatch = useMemo(
+    () => preferences.mainFavoriteTeamId
+      ? sortMatchesByDate(rankedMatches.filter((match) => matchIncludesTeam(match, preferences.mainFavoriteTeamId)))[0] ?? null
+      : null,
+    [preferences.mainFavoriteTeamId, rankedMatches],
+  );
   const japanScenario = useMemo(() => (data ? getJapanScenarioSummary(data, standings, data.matches) : null), [data, standings]);
 
   const homeRanking = useMemo<HomeRanking>(() => {
@@ -224,11 +231,10 @@ function App() {
             preferences={preferences}
             homeRanking={homeRanking}
             japanMatches={japanMatches}
+            favoriteNextMatch={favoriteNextMatch}
             japanScenario={japanScenario}
             qualificationSummaries={qualificationSummaries}
-            standings={standings}
-            thirdPlace={thirdPlace}
-            trackedTeamIds={trackedTeamIds}
+            onSettingsOpen={() => setActiveScreen('settings')}
             onTournamentOpen={() => setActiveScreen('tournament')}
             onMatchSelect={(matchId) => openMatchDetail(matchId, 'home')}
           />
@@ -238,15 +244,19 @@ function App() {
             data={data}
             preferences={preferences}
             rankedMatches={rankedMatches}
-            standings={standings}
             today={today}
             onMatchSelect={(matchId) => openMatchDetail(matchId, 'schedule')}
           />
         )}
+        {activeScreen === 'standings' && (
+          <StandingsScreen standings={standings} thirdPlace={thirdPlace} teams={data.teams} trackedTeamIds={trackedTeamIds} />
+        )}
         {activeScreen === 'tournament' && (
           <ProvisionalTournamentBracketBeta data={data} standings={standings} mainFavoriteTeamId={preferences.mainFavoriteTeamId} />
         )}
-        {activeScreen === 'settings' && <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} />}
+        {activeScreen === 'settings' && (
+          <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} onBack={() => setActiveScreen('home')} />
+        )}
         {activeScreen === 'matchDetail' && selectedMatch && (
           <MatchDetailScreen
             match={selectedMatch}
@@ -284,11 +294,10 @@ type HomeScreenProps = {
   preferences: UserPreferences;
   homeRanking: HomeRanking;
   japanMatches: MatchWithImportance[];
+  favoriteNextMatch: MatchWithImportance | null;
   japanScenario: JapanScenarioSummary | null;
   qualificationSummaries: QualificationSummary[];
-  standings: GroupStanding[];
-  thirdPlace: StandingRow[];
-  trackedTeamIds: string[];
+  onSettingsOpen: () => void;
   onTournamentOpen: () => void;
   onMatchSelect: (matchId: string) => void;
 };
@@ -298,11 +307,10 @@ function HomeScreen({
   preferences,
   homeRanking,
   japanMatches,
+  favoriteNextMatch,
   japanScenario,
   qualificationSummaries,
-  standings,
-  thirdPlace,
-  trackedTeamIds,
+  onSettingsOpen,
   onTournamentOpen,
   onMatchSelect,
 }: HomeScreenProps) {
@@ -310,6 +318,15 @@ function HomeScreen({
 
   return (
     <div className="space-y-5">
+      <section className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg">
+        <div>
+          <p className="text-xs font-semibold text-cyan-300">推し国設定</p>
+          <p className="mt-1 text-sm text-slate-300">メインで応援する国: {favoriteName}</p>
+        </div>
+        <button type="button" onClick={onSettingsOpen} className="shrink-0 rounded-xl border border-cyan-300/50 px-3 py-2 text-sm font-bold text-cyan-200 transition hover:bg-cyan-300/10">
+          設定する
+        </button>
+      </section>
       <RecommendationHeroCard
         match={homeRanking.matches[0] ?? null}
         isFallback={homeRanking.isFallback}
@@ -318,9 +335,9 @@ function HomeScreen({
         onMatchSelect={onMatchSelect}
       />
       <QualificationStatusSection summaries={qualificationSummaries} teams={data.teams} />
-      <JapanMatchesSection matches={japanMatches} teams={data.teams} onMatchSelect={onMatchSelect} />
+      <NextMatchSection title="日本代表の次戦" match={japanMatches[0] ?? null} emptyMessage="日本代表の次戦データがまだ登録されていません" teams={data.teams} onMatchSelect={onMatchSelect} />
+      <NextMatchSection title="推し国の次戦" match={favoriteNextMatch} emptyMessage={preferences.mainFavoriteTeamId ? 'メイン推し国の次戦データがまだ登録されていません' : '推し国設定からメインで応援する国を選ぶと表示します'} teams={data.teams} onMatchSelect={onMatchSelect} />
       {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
-      <GroupFSection data={data} standings={standings} matches={sortMatchesByDate(data.matches.filter((match) => match.groupId === 'F'))} rankedMatches={homeRanking.matches} onMatchSelect={onMatchSelect} />
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <h2 className="text-lg font-semibold">今日見るべき試合ランキング</h2>
@@ -336,7 +353,6 @@ function HomeScreen({
         </div>
       </section>
 
-      <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} trackedTeamIds={trackedTeamIds} />
       <section className="space-y-3 rounded-2xl border border-violet-300/30 bg-slate-900 p-4 shadow-lg">
         <div>
           <p className="text-xs font-semibold text-violet-300">暫定トーナメント表β</p>
@@ -455,23 +471,18 @@ function ShareButton({ onClick, status }: { onClick: () => void; status: ShareSt
   );
 }
 
-function JapanMatchesSection({ matches, teams, onMatchSelect }: { matches: MatchWithImportance[]; teams: Team[]; onMatchSelect: (matchId: string) => void }) {
+function NextMatchSection({ title, match, emptyMessage, teams, onMatchSelect }: { title: string; match: MatchWithImportance | null; emptyMessage: string; teams: Team[]; onMatchSelect: (matchId: string) => void }) {
   return (
     <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold">日本代表の試合</h2>
-        <p className="text-sm leading-6 text-slate-300">応援する国の設定に関係なく、日本代表の試合を固定表示します。</p>
+        <h2 className="text-lg font-semibold">{title}</h2>
       </div>
-      {matches.length === 0 ? (
-        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">日本代表の試合データがまだ登録されていません</p>
+      {!match ? (
+        <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">{emptyMessage}</p>
       ) : (
-        <div className="space-y-3">
-          {matches.map((match) => (
-            <div key={match.id} className="space-y-2">
-              <MatchCard match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
-              <JapanMatchImpactSummary match={match} teams={teams} />
-            </div>
-          ))}
+        <div className="space-y-2">
+          <MatchCard match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
+          {matchIncludesTeam(match, japanTeamId) && <JapanMatchImpactSummary match={match} teams={teams} />}
         </div>
       )}
     </section>
@@ -519,48 +530,6 @@ function JapanScenarioSection({ scenario, teams }: { scenario: JapanScenarioSumm
         {scenario.messages.map((message) => <p key={message} className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-slate-200">{message}</p>)}
       </div>
       <p className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-400">MVP版では詳細タイブレーク・直接対決・フェアプレーポイント等は未反映です。</p>
-    </section>
-  );
-}
-
-function GroupFSection({ data, standings, matches, onMatchSelect }: { data: AppData; standings: GroupStanding[]; matches: Match[]; rankedMatches: MatchWithImportance[]; onMatchSelect: (matchId: string) => void }) {
-  const group = data.groups.find((candidate) => candidate.id === 'F');
-  const rows = standings.find((candidate) => candidate.groupId === 'F')?.rows ?? [];
-  if (!group) return null;
-
-  return (
-    <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Group F 日本の組</h2>
-        <p className="text-sm leading-6 text-slate-300">日本代表の突破条件を見るには、日本戦だけでなく同組のNetherlands / Sweden / Tunisiaの試合結果も重要です。</p>
-      </div>
-      <div className="space-y-2">
-        {group.teamIds.map((teamId) => {
-          const row = rows.find((candidate) => candidate.teamId === teamId);
-          const rank = row ? rows.findIndex((candidate) => candidate.teamId === teamId) + 1 : null;
-          const remaining = matches.filter((match) => !match.played && matchIncludesTeam(match, teamId)).length;
-          return (
-            <div key={teamId} className={`rounded-xl px-3 py-3 ${teamId === japanTeamId ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-800'}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">{teamName(data.teams, teamId)}</p>
-                  <p className="text-xs text-slate-400">{teamId}</p>
-                </div>
-                {teamId === japanTeamId && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">日本代表</span>}
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <Metric label="現在順位" value={rank ? `${rank}位` : '判定保留'} />
-                <Metric label="勝点" value={row?.points ?? '-'} />
-                <Metric label="得失点差" value={row?.goalDiff ?? '-'} />
-                <Metric label="残り試合" value={`${remaining}試合`} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="space-y-3">
-        {matches.map((match) => <MatchCard key={match.id} match={match} teams={data.teams} onSelect={() => onMatchSelect(match.id)} />)}
-      </div>
     </section>
   );
 }
@@ -615,7 +584,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function ScheduleScreen({ data, preferences, rankedMatches, standings, today, onMatchSelect }: { data: AppData; preferences: UserPreferences; rankedMatches: MatchWithImportance[]; standings: GroupStanding[]; today: Date; onMatchSelect: (matchId: string) => void }) {
+function ScheduleScreen({ data, preferences, rankedMatches, today, onMatchSelect }: { data: AppData; preferences: UserPreferences; rankedMatches: MatchWithImportance[]; today: Date; onMatchSelect: (matchId: string) => void }) {
   const [activeFilterId, setActiveFilterId] = useState<ScheduleFilterId>('today_next');
   const importanceByMatchId = new Map(rankedMatches.map((match) => [match.id, match]));
   const filterOptions = useMemo(() => getScheduleFilterOptions(data.matches, data.teams, preferences, today), [data.matches, data.teams, preferences, today]);
@@ -650,12 +619,11 @@ function ScheduleScreen({ data, preferences, rankedMatches, standings, today, on
           </div>
         )}
       </section>
-      <StandingsList standings={standings} teams={data.teams} />
     </div>
   );
 }
 
-function SettingsScreen({ data, preferences, onPreferencesChange }: { data: AppData; preferences: UserPreferences; onPreferencesChange: (preferences: UserPreferences) => void }) {
+function SettingsScreen({ data, preferences, onPreferencesChange, onBack }: { data: AppData; preferences: UserPreferences; onPreferencesChange: (preferences: UserPreferences) => void; onBack: () => void }) {
   const toggleSelectedTeamId = (teamId: string, selected: boolean) => {
     const selectedTeamIds = selected ? [...new Set([...preferences.selectedTeamIds, teamId])] : preferences.selectedTeamIds.filter((selectedTeamId) => selectedTeamId !== teamId);
     onPreferencesChange({ ...preferences, selectedTeamIds });
@@ -663,6 +631,9 @@ function SettingsScreen({ data, preferences, onPreferencesChange }: { data: AppD
 
   return (
     <section className="space-y-5 rounded-2xl bg-slate-900 p-4 shadow-lg">
+      <button type="button" onClick={onBack} className="rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-cyan-200">
+        ホームに戻る
+      </button>
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">応援する国の設定</h2>
         <p className="text-sm leading-6 text-slate-300">応援する国の設定はこの端末のブラウザに保存されます。応援する国を設定すると、Homeのおすすめ試合や日程フィルターに反映されます。メインで応援する国はおすすめ試合の優先度に強く反映されます。一緒に追いかける国は、日程フィルターや関連試合に反映されます。</p>
@@ -806,25 +777,31 @@ const getImpactItems = (match: Match): { label: string; text: string }[] => {
   ];
 };
 
-function StandingsCards({ standings, thirdPlace, teams, trackedTeamIds }: { standings: GroupStanding[]; thirdPlace: StandingRow[]; teams: Team[]; trackedTeamIds: string[] }) {
+function StandingsScreen({ standings, thirdPlace, teams, trackedTeamIds }: { standings: GroupStanding[]; thirdPlace: StandingRow[]; teams: Team[]; trackedTeamIds: string[] }) {
   return (
-    <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
-      <h2 className="text-lg font-semibold">順位サマリー</h2>
-      <StandingsList standings={standings} teams={teams} compact />
-      <ThirdPlaceLineSection thirdPlace={thirdPlace} teams={teams} trackedTeamIds={trackedTeamIds} />
-    </section>
+    <div className="space-y-5">
+      <section className="space-y-2 rounded-2xl border border-cyan-300/30 bg-slate-900 p-4 shadow-lg">
+        <p className="text-xs font-semibold text-cyan-300">現在地を確認</p>
+        <h2 className="text-xl font-bold">順位</h2>
+        <p className="text-sm leading-6 text-slate-300">グループ順位と3位通過ラインをまとめて確認できます。日本代表と推し国は強調表示します。</p>
+      </section>
+      <StandingsList standings={standings} teams={teams} trackedTeamIds={trackedTeamIds} />
+      <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+        <ThirdPlaceLineSection thirdPlace={thirdPlace} teams={teams} trackedTeamIds={trackedTeamIds} />
+      </section>
+    </div>
   );
 }
 
-function StandingsList({ standings, teams, compact = false }: { standings: GroupStanding[]; teams: Team[]; compact?: boolean }) {
+function StandingsList({ standings, teams, trackedTeamIds = [] }: { standings: GroupStanding[]; teams: Team[]; trackedTeamIds?: string[] }) {
   return (
-    <section className={compact ? 'space-y-3' : 'space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg'}>
-      {!compact && <h2 className="text-lg font-semibold">グループ順位</h2>}
+    <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
+      <h2 className="text-lg font-semibold">グループ順位</h2>
       <div className="space-y-3">
         {standings.map((group) => (
           <div key={group.groupId} className="rounded-xl bg-slate-800 p-3">
             <h3 className="mb-2 text-sm font-semibold text-cyan-300">Group {group.groupId}</h3>
-            <div className="space-y-2">{group.rows.map((row, index) => <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} compact={compact} />)}</div>
+            <div className="space-y-2">{group.rows.map((row, index) => <StandingRowCard key={row.teamId} row={row} rank={index + 1} teams={teams} highlighted={trackedTeamIds.includes(row.teamId)} />)}</div>
           </div>
         ))}
       </div>
@@ -839,7 +816,7 @@ function ThirdPlaceLineSection({ thirdPlace, teams, trackedTeamIds }: { thirdPla
   return (
     <div className="space-y-3 rounded-xl bg-slate-800 p-3">
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-cyan-300">3位通過ライン</h3>
+        <h2 className="text-lg font-semibold text-cyan-300">3位通過ライン</h2>
         <p className="text-sm leading-6 text-slate-300">各組3位のうち、成績上位8チームが通過します。ここでは現在の8番目をボーダーとして表示します。</p>
       </div>
       <div className="rounded-xl border border-cyan-300/30 bg-slate-900 p-3">
@@ -869,12 +846,12 @@ function ThirdPlaceRowCard({ row, rank, teams, highlighted }: { row: StandingRow
   );
 }
 
-function StandingRowCard({ row, rank, teams, compact = false }: { row: StandingRow; rank: number; teams: Team[]; compact?: boolean }) {
+function StandingRowCard({ row, rank, teams, highlighted }: { row: StandingRow; rank: number; teams: Team[]; highlighted: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-900 px-3 py-2">
+    <div className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${highlighted ? 'bg-cyan-300/15 ring-1 ring-cyan-300/60' : 'bg-slate-900'}`}>
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold">{rank}. {teamName(teams, row.teamId)}</p>
-        {!compact && <p className="text-xs text-slate-400">{formatRecord(row)}</p>}
+        <p className="text-xs text-slate-400">{formatRecord(row)}</p>
       </div>
       <p className="shrink-0 text-right text-xs text-slate-300">
         <span className="font-semibold text-slate-50">{row.points} pts</span>

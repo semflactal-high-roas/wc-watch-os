@@ -26,6 +26,7 @@
 | GitHub Pages公開 | 一部実装 | `vite.config.ts` のbase設定と `.github/workflows/deploy.yml` を確認。公開URLと公開可能の記載あり。最新デプロイ成否・実アクセスは要確認 |
 | Vite + React + TypeScript | 実装済み | `package.json`、`vite.config.ts`、`src/main.tsx`、`src/App.tsx` で確認 |
 | スマホ向けUI | 実装済み | `src/App.tsx` の `max-w-md`、固定ボトムナビ、カードUIで確認。実端末QA結果は要確認 |
+| メインタブ構成 | 実装済み | 下部ナビを「ホーム / 日程 / 順位 / トーナメント」の4タブに整理。設定はHome内導線から開く |
 | グループステージ全72試合データ | 実装済み | `public/data/matches.json` は72件。`public/data/groups.json` はGroups A-Lの12組、`teams.json` は48件 |
 | 日本時間・曜日つき表示 | 実装済み | `src/logic/dateTimeDisplay.ts` と `src/App.tsx` で確認 |
 | 時間帯ラベル | 実装済み | `src/logic/timeOfDayLabel.ts` と試合カード・詳細での利用を確認 |
@@ -60,7 +61,7 @@
 
 ## 5. Next Actions
 
-- **Priority 1:** GitHub Actionsの最新BuildとGitHub Pages Deployを確認し、公開URLでHome・日程・設定・試合詳細が開くことを確認する。
+- **Priority 1:** GitHub Actionsの最新BuildとGitHub Pages Deployを確認し、公開URLでHome・日程・順位・トーナメント・Home内設定導線・試合詳細が開くことを確認する。
 - **Priority 2:** `docs/14_manual_qa_checklist.md` と `docs/15_beta_release_checklist.md` の主要項目をスマホ幅で実施し、公開可否を記録する。
 - **Priority 3:** 開幕前の結果手動更新手順を再確認し、更新時に `npm run validate:data`、`npm run build`、Pages公開確認を行える状態にする。
 

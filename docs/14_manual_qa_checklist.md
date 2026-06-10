@@ -28,7 +28,8 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] Header shows the badge `2026 FIFA World Cup 対応`.
 - [ ] Site name shows `W杯 観戦ナビ`.
 - [ ] Header copy shows `日本代表と応援する国の試合だけ、見る価値で整理`.
-- [ ] Bottom navigation labels are `ホーム`, `日程`, and `設定`.
+- [ ] Bottom navigation labels are `ホーム`, `日程`, `順位`, and `トーナメント`.
+- [ ] `設定` is not shown in the bottom navigation.
 - [ ] User-facing labels use `応援する国` style wording instead of `推し国`.
 - [ ] Match Detail uses `カレンダーに追加` instead of `ICSをダウンロード`.
 - [ ] Main date/time displays use `日本時間` instead of `JST`.
@@ -68,11 +69,12 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] Tapping `この試合を共有` copies a share text for the recommended match.
 - [ ] Copy success shows `共有文をコピーしました`.
 - [ ] Qualification status cards are visible.
-- [ ] The `日本代表の試合` section is visible and shows 3 Japan matches.
+- [ ] The `日本代表の次戦` section is visible and shows one match.
+- [ ] The `推し国の次戦` section shows the configured main supported team's next match or setup guidance.
 - [ ] The `日本代表 突破シナリオ` section is visible.
-- [ ] The `Group F 日本の組` section is visible and shows Netherlands, Japan, Sweden, and Tunisia.
 - [ ] The `今日見るべき試合ランキング` section is visible.
-- [ ] Standings summary and 3rd-place line are visible.
+- [ ] A supported-team settings button is visible and opens Settings.
+- [ ] Full group standings and the full 3rd-place line are not visible.
 - [ ] No `データエラー` is visible anywhere on the screen.
 
 ## Schedule Screen
@@ -89,12 +91,20 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] Groups A-L matches can be found when `すべて` is selected.
 - [ ] Group K and Group L matches are visible when `すべて` is selected.
 - [ ] Tapping a filtered match card opens Match Detail.
-- [ ] The group standings section remains visible and is not filtered.
+- [ ] Full group standings and the full 3rd-place line are not visible.
 - [ ] No `データエラー` is visible after changing filters.
+
+## Standings Screen
+
+- [ ] The `順位` tab can be opened from the bottom navigation.
+- [ ] The headings `グループ順位` and `3位通過ライン` are visible.
+- [ ] Japan and configured supported teams are highlighted.
+- [ ] Full match lists and the provisional tournament bracket are not visible.
 
 ## Settings Screen
 
-- [ ] The `設定` tab can be opened from the bottom navigation.
+- [ ] Settings can be opened from the Home settings button.
+- [ ] Tapping `ホームに戻る` returns to Home.
 - [ ] The heading shows `応援する国の設定`.
 - [ ] `メインで応援する国` can be selected.
 - [ ] `一緒に追いかける国` choices can be selected.
