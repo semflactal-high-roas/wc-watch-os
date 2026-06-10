@@ -52,7 +52,7 @@ export type SemifinalConnection = {
 
 export type ProvisionalTournamentTree = {
   status: 'unofficial_provisional_beta';
-  officialRound32SlotsConfirmed: false;
+  officialRound32SlotsConfirmed: boolean;
   rounds: Record<TournamentRound, BracketMatch[]>;
   blocks: TournamentBlock[];
   semifinalConnections: SemifinalConnection[];
@@ -78,33 +78,66 @@ type Round32Definition = {
   awaySlot: Exclude<BracketSlot, { type: 'winner' }>;
 };
 
-const groupIds = 'ABCDEFGHIJKL'.split('');
+type WinnerRoundDefinition = {
+  id: string;
+  homeMatchId: string;
+  awayMatchId: string;
+};
 
-// TODO(要確認): repo内に公式R32枠定義がないため、これは画面と接続ロジックを確認するための仮配置。
-// 公式枠が確認できたら、この定数だけを出典確認済みの定義へ差し替える。
+const thirdPlace = (candidateGroupIds: string[]): Exclude<BracketSlot, { type: 'winner' }> => ({
+  type: 'third_place',
+  candidateGroupIds,
+  unresolved: true,
+});
+
+// FIFAの公式scheduleにあるMatch 73〜88の枠順。3位通過チームの正式な割り当ては未実装。
 export const PROVISIONAL_R32_SLOT_DEFINITIONS: Round32Definition[] = [
-  ...groupIds.slice(0, 8).map((groupId, index) => ({
-    id: `R32-${String(index + 1).padStart(2, '0')}`,
-    homeSlot: { type: 'group_winner' as const, groupId },
-    awaySlot: { type: 'third_place' as const, unresolved: true as const },
-  })),
-  ...groupIds.slice(8).map((groupId, index) => ({
-    id: `R32-${String(index + 9).padStart(2, '0')}`,
-    homeSlot: { type: 'group_winner' as const, groupId },
-    awaySlot: { type: 'group_runner_up' as const, groupId: groupIds[index] ?? '' },
-  })),
-  ...groupIds.slice(4).reduce<Round32Definition[]>((definitions, groupId, index, remainingGroups) => {
-    if (index % 2 !== 0) return definitions;
-    const opponentGroupId = remainingGroups[index + 1];
-    if (!opponentGroupId) return definitions;
-    definitions.push({
-      id: `R32-${String(definitions.length + 13).padStart(2, '0')}`,
-      homeSlot: { type: 'group_runner_up', groupId },
-      awaySlot: { type: 'group_runner_up', groupId: opponentGroupId },
-    });
-    return definitions;
-  }, []),
+  { id: 'R32-73', homeSlot: { type: 'group_runner_up', groupId: 'A' }, awaySlot: { type: 'group_runner_up', groupId: 'B' } },
+  { id: 'R32-74', homeSlot: { type: 'group_winner', groupId: 'E' }, awaySlot: thirdPlace(['A', 'B', 'C', 'D', 'F']) },
+  { id: 'R32-75', homeSlot: { type: 'group_winner', groupId: 'F' }, awaySlot: { type: 'group_runner_up', groupId: 'C' } },
+  { id: 'R32-76', homeSlot: { type: 'group_winner', groupId: 'C' }, awaySlot: { type: 'group_runner_up', groupId: 'F' } },
+  { id: 'R32-77', homeSlot: { type: 'group_winner', groupId: 'I' }, awaySlot: thirdPlace(['C', 'D', 'F', 'G', 'H']) },
+  { id: 'R32-78', homeSlot: { type: 'group_runner_up', groupId: 'E' }, awaySlot: { type: 'group_runner_up', groupId: 'I' } },
+  { id: 'R32-79', homeSlot: { type: 'group_winner', groupId: 'A' }, awaySlot: thirdPlace(['C', 'E', 'F', 'H', 'I']) },
+  { id: 'R32-80', homeSlot: { type: 'group_winner', groupId: 'L' }, awaySlot: thirdPlace(['E', 'H', 'I', 'J', 'K']) },
+  { id: 'R32-81', homeSlot: { type: 'group_winner', groupId: 'D' }, awaySlot: thirdPlace(['B', 'E', 'F', 'I', 'J']) },
+  { id: 'R32-82', homeSlot: { type: 'group_winner', groupId: 'G' }, awaySlot: thirdPlace(['A', 'E', 'H', 'I', 'J']) },
+  { id: 'R32-83', homeSlot: { type: 'group_runner_up', groupId: 'K' }, awaySlot: { type: 'group_runner_up', groupId: 'L' } },
+  { id: 'R32-84', homeSlot: { type: 'group_winner', groupId: 'H' }, awaySlot: { type: 'group_runner_up', groupId: 'J' } },
+  { id: 'R32-85', homeSlot: { type: 'group_winner', groupId: 'B' }, awaySlot: thirdPlace(['E', 'F', 'G', 'I', 'J']) },
+  { id: 'R32-86', homeSlot: { type: 'group_winner', groupId: 'J' }, awaySlot: { type: 'group_runner_up', groupId: 'H' } },
+  { id: 'R32-87', homeSlot: { type: 'group_winner', groupId: 'K' }, awaySlot: thirdPlace(['D', 'E', 'I', 'J', 'L']) },
+  { id: 'R32-88', homeSlot: { type: 'group_runner_up', groupId: 'D' }, awaySlot: { type: 'group_runner_up', groupId: 'G' } },
 ];
+
+export const OFFICIAL_R16_CONNECTIONS: WinnerRoundDefinition[] = [
+  { id: 'R16-89', homeMatchId: 'R32-74', awayMatchId: 'R32-77' },
+  { id: 'R16-90', homeMatchId: 'R32-73', awayMatchId: 'R32-75' },
+  { id: 'R16-91', homeMatchId: 'R32-76', awayMatchId: 'R32-78' },
+  { id: 'R16-92', homeMatchId: 'R32-79', awayMatchId: 'R32-80' },
+  { id: 'R16-93', homeMatchId: 'R32-83', awayMatchId: 'R32-84' },
+  { id: 'R16-94', homeMatchId: 'R32-81', awayMatchId: 'R32-82' },
+  { id: 'R16-95', homeMatchId: 'R32-86', awayMatchId: 'R32-88' },
+  { id: 'R16-96', homeMatchId: 'R32-85', awayMatchId: 'R32-87' },
+];
+
+export const OFFICIAL_QUARTERFINAL_CONNECTIONS: WinnerRoundDefinition[] = [
+  { id: 'QF-97', homeMatchId: 'R16-89', awayMatchId: 'R16-90' },
+  { id: 'QF-98', homeMatchId: 'R16-93', awayMatchId: 'R16-94' },
+  { id: 'QF-99', homeMatchId: 'R16-91', awayMatchId: 'R16-92' },
+  { id: 'QF-100', homeMatchId: 'R16-95', awayMatchId: 'R16-96' },
+];
+
+export const OFFICIAL_SEMIFINAL_CONNECTIONS: WinnerRoundDefinition[] = [
+  { id: 'SF-101', homeMatchId: 'QF-97', awayMatchId: 'QF-98' },
+  { id: 'SF-102', homeMatchId: 'QF-99', awayMatchId: 'QF-100' },
+];
+
+export const OFFICIAL_FINAL_CONNECTION: WinnerRoundDefinition = {
+  id: 'F-104',
+  homeMatchId: 'SF-101',
+  awayMatchId: 'SF-102',
+};
 
 const groupMatchesAreComplete = (group: Group, matches: Match[]): boolean => {
   const groupMatches = matches.filter(
@@ -152,30 +185,29 @@ const winnerSlot = (matchId: string): ResolvedBracketSlot => ({
 
 const buildWinnerRound = (
   round: Exclude<TournamentRound, 'round32'>,
-  prefix: string,
   sourceMatches: BracketMatch[],
+  definitions: WinnerRoundDefinition[],
 ): BracketMatch[] => {
-  const matches: BracketMatch[] = [];
+  const sourceById = new Map(sourceMatches.map((match) => [match.id, match]));
 
-  for (let index = 0; index < sourceMatches.length; index += 2) {
-    const homeSource = sourceMatches[index];
-    const awaySource = sourceMatches[index + 1];
-    if (!homeSource || !awaySource) continue;
+  return definitions.map((definition) => {
+    const homeSource = sourceById.get(definition.homeMatchId);
+    const awaySource = sourceById.get(definition.awayMatchId);
+    if (!homeSource || !awaySource) {
+      throw new Error(`Official tournament connection references an unknown match: ${definition.id}`);
+    }
 
-    matches.push({
-      id: `${prefix}-${String(matches.length + 1).padStart(2, '0')}`,
+    return {
+      id: definition.id,
       round,
       homeSlot: { type: 'winner', matchId: homeSource.id },
       awaySlot: { type: 'winner', matchId: awaySource.id },
       home: winnerSlot(homeSource.id),
       away: winnerSlot(awaySource.id),
-      isOfficialSlotConfirmed: false,
+      isOfficialSlotConfirmed: true,
       isFavoritePath: homeSource.isFavoritePath || awaySource.isFavoritePath,
-      note: '接続順は仮配置です。公式枠は要確認です。',
-    });
-  }
-
-  return matches;
+    };
+  });
 };
 
 const winnerMatchIds = (match: BracketMatch): string[] =>
@@ -232,16 +264,18 @@ export const buildProvisionalTournamentTree = ({
       round: 'round32',
       home,
       away,
-      isOfficialSlotConfirmed: false,
+      isOfficialSlotConfirmed: true,
       isFavoritePath: Boolean(mainFavoriteTeamId && (home.teamId === mainFavoriteTeamId || away.teamId === mainFavoriteTeamId)),
-      note: 'repo内で公式R32枠を確認できていないため、この対戦枠は要確認です。',
+      note: definition.homeSlot.type === 'third_place' || definition.awaySlot.type === 'third_place'
+        ? '3位通過枠の正式な割り当ては未確定です。'
+        : undefined,
     };
   });
 
-  const round16 = buildWinnerRound('round16', 'R16', round32);
-  const quarterfinal = buildWinnerRound('quarterfinal', 'QF', round16);
-  const semifinal = buildWinnerRound('semifinal', 'SF', quarterfinal);
-  const final = buildWinnerRound('final', 'F', semifinal);
+  const round16 = buildWinnerRound('round16', round32, OFFICIAL_R16_CONNECTIONS);
+  const quarterfinal = buildWinnerRound('quarterfinal', round16, OFFICIAL_QUARTERFINAL_CONNECTIONS);
+  const semifinal = buildWinnerRound('semifinal', quarterfinal, OFFICIAL_SEMIFINAL_CONNECTIONS);
+  const final = buildWinnerRound('final', semifinal, [OFFICIAL_FINAL_CONNECTION]);
   const blocks = buildTournamentBlocks(round32, round16, quarterfinal, semifinal);
   const semifinalConnections = semifinal.flatMap<SemifinalConnection>((match) => {
     const connectedBlockIds = blocks
@@ -264,7 +298,7 @@ export const buildProvisionalTournamentTree = ({
 
   return {
     status: 'unofficial_provisional_beta',
-    officialRound32SlotsConfirmed: false,
+    officialRound32SlotsConfirmed: true,
     rounds: { round32, round16, quarterfinal, semifinal, final },
     blocks,
     semifinalConnections,

@@ -146,7 +146,7 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
           この表は、現在の暫定順位をもとにした非公式の想定トーナメント表です。3位通過枠と正式な組み合わせは、全グループの結果確定後に変動します。勝敗予想ではありません。
         </p>
         <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
-          公式発表ではありません。3位通過枠は未確定です。repo内で公式R32枠を確認できていないため、R32の対戦枠と接続順は要確認の仮配置です。
+          公式発表ではありません。R32の1位・2位通過枠と接続順は公式scheduleに基づきますが、3位通過枠の正式な割り当ては未確定です。
         </p>
       </section>
 

@@ -43,6 +43,20 @@ const winnerSourceIds = (matches: BracketMatch[]): string[] =>
     [match.homeSlot, match.awaySlot].flatMap((slot) => (slot.type === 'winner' ? [slot.matchId] : [])),
   );
 
+const hasGroupSlot = (
+  match: BracketMatch,
+  type: 'group_winner' | 'group_runner_up',
+  groupId: string,
+): boolean => [match.homeSlot, match.awaySlot].some((slot) => slot.type === type && slot.groupId === groupId);
+
+const hasRound32Pair = (
+  matches: BracketMatch[],
+  first: ['group_winner' | 'group_runner_up', string],
+  second: ['group_winner' | 'group_runner_up', string],
+): boolean => matches.some((match) =>
+  hasGroupSlot(match, first[0], first[1]) && hasGroupSlot(match, second[0], second[1]),
+);
+
 const roundOrder: TournamentRound[] = ['round32', 'round16', 'quarterfinal', 'semifinal', 'final'];
 
 const roundTransitions: [TournamentRound, TournamentRound][] = [
@@ -79,6 +93,45 @@ describe('buildProvisionalTournamentTree', () => {
       expect(sourceIds).toHaveLength(currentRound.length * 2);
       expect(sourceIds.every((sourceId) => precedingIds.has(sourceId))).toBe(true);
     }
+  });
+
+  it('uses the official R32 group winner and runner-up pairings', () => {
+    const { round32 } = buildTree().rounds;
+
+    expect(hasRound32Pair(round32, ['group_winner', 'F'], ['group_runner_up', 'C'])).toBe(true);
+    expect(hasRound32Pair(round32, ['group_runner_up', 'F'], ['group_winner', 'C'])).toBe(true);
+    expect(hasRound32Pair(round32, ['group_runner_up', 'E'], ['group_runner_up', 'I'])).toBe(true);
+    expect(hasRound32Pair(round32, ['group_runner_up', 'F'], ['group_runner_up', 'E'])).toBe(false);
+  });
+
+  it('uses the official winner connections from R32 through the final', () => {
+    const { rounds } = buildTree();
+    const connections = (matches: BracketMatch[]) =>
+      matches.map((match) => [match.id, ...winnerSourceIds([match])]);
+
+    expect(connections(rounds.round16)).toEqual([
+      ['R16-89', 'R32-74', 'R32-77'],
+      ['R16-90', 'R32-73', 'R32-75'],
+      ['R16-91', 'R32-76', 'R32-78'],
+      ['R16-92', 'R32-79', 'R32-80'],
+      ['R16-93', 'R32-83', 'R32-84'],
+      ['R16-94', 'R32-81', 'R32-82'],
+      ['R16-95', 'R32-86', 'R32-88'],
+      ['R16-96', 'R32-85', 'R32-87'],
+    ]);
+    expect(connections(rounds.quarterfinal)).toEqual([
+      ['QF-97', 'R16-89', 'R16-90'],
+      ['QF-98', 'R16-93', 'R16-94'],
+      ['QF-99', 'R16-91', 'R16-92'],
+      ['QF-100', 'R16-95', 'R16-96'],
+    ]);
+    expect(connections(rounds.semifinal)).toEqual([
+      ['SF-101', 'QF-97', 'QF-98'],
+      ['SF-102', 'QF-99', 'QF-100'],
+    ]);
+    expect(connections(rounds.final)).toEqual([
+      ['F-104', 'SF-101', 'SF-102'],
+    ]);
   });
 
   it('keeps every third-place slot unresolved without assigning a team', () => {
