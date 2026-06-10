@@ -35,6 +35,7 @@
 | 重要度S/A/B/C | 一部実装 | `src/logic/matchImportance.ts` でS/A/B/Cを決定論的に算出。主要UIでは `高 / 中 / 低` 表示へ変換している箇所あり |
 | グループ順位表 | 実装済み | `src/logic/standings.ts` と `src/App.tsx` の順位表示を確認 |
 | 3位通過ライン | 実装済み | `src/logic/thirdPlaceRanking.ts`、`thirdPlaceLine.ts` と表示を確認。詳細タイブレークは未反映 |
+| 暫定トーナメント表β | 一部実装 | 専用の「山」画面で現在順位をR32枠へ差し込み、R16〜Finalまで勝者枠で接続。3位通過枠・公式R32枠・正式組み合わせは未確定で、勝敗予想は行わない |
 | 試合詳細 | 実装済み | `src/App.tsx` のMatch Detail画面を確認 |
 | ICSカレンダー追加 | 実装済み | `src/logic/ics.ts` とHome・Match Detailの導線を確認 |
 | 共有文コピー | 実装済み | `src/logic/shareCopy.ts` とHome・Match Detailの導線を確認 |
@@ -52,6 +53,7 @@
 - `npm run validate` scriptは存在しない。現在のデータ検証scriptは `npm run validate:data`。
 - X共有カードのCanvas/PNG生成は未実装。共有文コピーは実装済み。
 - ノックアウトステージは未投入で、全104試合は未対応。
+- 暫定トーナメント表βのR32枠と接続順は、repo内に公式定義がないため要確認の仮配置。公式ブラケット完全再現ではない。
 - 外部API連携と結果の自動更新は未実装。結果更新は当面手動。
 - 詳細タイブレーク、直接対決、フェアプレーポイント、抽選条件は未反映。
 - FIFA公式データの再確認と、更新後の公開画面確認は手動運用。

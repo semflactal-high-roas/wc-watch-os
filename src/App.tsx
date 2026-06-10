@@ -17,7 +17,7 @@ import { getThirdPlaceLine } from './logic/thirdPlaceLine';
 import { rankThirdPlaceTeams } from './logic/thirdPlaceRanking';
 import type { AppData, Match, MatchStage, QualificationSummary, StandingRow, Team } from './types';
 
-type MainScreen = 'home' | 'schedule' | 'settings';
+type MainScreen = 'home' | 'schedule' | 'tournament' | 'settings';
 type Screen = MainScreen | 'matchDetail';
 type GroupStanding = { groupId: string; rows: StandingRow[] };
 type ShareStatus = 'idle' | 'copied' | 'error';
@@ -44,6 +44,7 @@ const defaultPreferences: UserPreferences = {
 const tabs: { id: MainScreen; label: string }[] = [
   { id: 'home', label: 'ホーム' },
   { id: 'schedule', label: '日程' },
+  { id: 'tournament', label: '山' },
   { id: 'settings', label: '設定' },
 ];
 
@@ -147,7 +148,12 @@ function App() {
       groupId: group.id,
       rows: computeGroupStandings(
         group.teamIds,
-        data.matches.filter((match) => group.teamIds.includes(match.homeTeamId) && group.teamIds.includes(match.awayTeamId)),
+        data.matches.filter(
+          (match) =>
+            match.stage === 'group' &&
+            group.teamIds.includes(match.homeTeamId) &&
+            group.teamIds.includes(match.awayTeamId),
+        ),
       ),
     }));
   }, [data]);
@@ -223,6 +229,7 @@ function App() {
             standings={standings}
             thirdPlace={thirdPlace}
             trackedTeamIds={trackedTeamIds}
+            onTournamentOpen={() => setActiveScreen('tournament')}
             onMatchSelect={(matchId) => openMatchDetail(matchId, 'home')}
           />
         )}
@@ -235,6 +242,9 @@ function App() {
             today={today}
             onMatchSelect={(matchId) => openMatchDetail(matchId, 'schedule')}
           />
+        )}
+        {activeScreen === 'tournament' && (
+          <ProvisionalTournamentBracketBeta data={data} standings={standings} mainFavoriteTeamId={preferences.mainFavoriteTeamId} />
         )}
         {activeScreen === 'settings' && <SettingsScreen data={data} preferences={preferences} onPreferencesChange={setPreferences} />}
         {activeScreen === 'matchDetail' && selectedMatch && (
@@ -251,7 +261,7 @@ function App() {
 
       {activeScreen !== 'matchDetail' && (
         <nav className="fixed inset-x-0 bottom-0 border-t border-slate-800 bg-slate-950/95 px-3 py-2 backdrop-blur">
-          <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+          <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -279,6 +289,7 @@ type HomeScreenProps = {
   standings: GroupStanding[];
   thirdPlace: StandingRow[];
   trackedTeamIds: string[];
+  onTournamentOpen: () => void;
   onMatchSelect: (matchId: string) => void;
 };
 
@@ -292,6 +303,7 @@ function HomeScreen({
   standings,
   thirdPlace,
   trackedTeamIds,
+  onTournamentOpen,
   onMatchSelect,
 }: HomeScreenProps) {
   const favoriteName = preferences.mainFavoriteTeamId ? teamName(data.teams, preferences.mainFavoriteTeamId) : '未設定';
@@ -325,7 +337,16 @@ function HomeScreen({
       </section>
 
       <StandingsCards standings={standings} thirdPlace={thirdPlace} teams={data.teams} trackedTeamIds={trackedTeamIds} />
-      <ProvisionalTournamentBracketBeta />
+      <section className="space-y-3 rounded-2xl border border-violet-300/30 bg-slate-900 p-4 shadow-lg">
+        <div>
+          <p className="text-xs font-semibold text-violet-300">暫定トーナメント表β</p>
+          <h2 className="mt-1 text-lg font-semibold">現在の山を見る</h2>
+        </div>
+        <p className="text-sm leading-6 text-slate-300">推し国の暫定R32カードと、決勝までつながる山を独立画面で確認できます。</p>
+        <button type="button" onClick={onTournamentOpen} className="w-full rounded-xl bg-violet-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-violet-200">
+          現在の山を見る
+        </button>
+      </section>
     </div>
   );
 }
