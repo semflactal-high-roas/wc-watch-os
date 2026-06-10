@@ -266,7 +266,9 @@ export const buildProvisionalTournamentTree = ({
       away,
       isOfficialSlotConfirmed: true,
       isFavoritePath: Boolean(mainFavoriteTeamId && (home.teamId === mainFavoriteTeamId || away.teamId === mainFavoriteTeamId)),
-      note: home.isUnresolved || away.isUnresolved ? '3位通過枠の正式な割り当ては未確定です。' : undefined,
+      note: definition.homeSlot.type === 'third_place' || definition.awaySlot.type === 'third_place'
+        ? '3位通過枠の正式な割り当ては未確定です。'
+        : undefined,
     };
   });
 
