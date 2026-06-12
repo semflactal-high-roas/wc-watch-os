@@ -50,7 +50,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 ## Weekday Date Display
 
-- [ ] Home recommendation card dates include weekdays, for example `2026-06-15（月）05:00 日本時間`.
+- [ ] Home match section card dates include weekdays, for example `2026-06-15（月）05:00 日本時間`.
 - [ ] Japan match cards include weekdays in date/time display.
 - [ ] Match ranking cards include weekdays in date/time display.
 - [ ] Schedule match cards include weekdays in date/time display.
@@ -62,17 +62,17 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 ## Home Screen
 
 - [ ] The page renders without a browser or app error.
-- [ ] The top of Home shows `今日のおすすめ` when today's matches are available, or `次に見るべき試合` when fallback matches are shown.
-- [ ] The recommendation card shows the match pairing, flags, kickoff time, `日本時間`, context label, importance label, and importance score.
-- [ ] Tapping `試合詳細を見る` opens Match Detail for the recommended match.
-- [ ] Tapping `カレンダーに追加` downloads a `.ics` file for the recommended match.
-- [ ] Tapping `この試合を共有` copies a share text for the recommended match.
-- [ ] Copy success shows `共有文をコピーしました`.
+- [ ] `これから見るべき試合` never shows a finished or already-started match.
 - [ ] Qualification status cards are visible.
 - [ ] The `日本代表の次戦` section is visible and shows one match.
 - [ ] The `推し国の次戦` section shows the configured main supported team's next match or setup guidance.
 - [ ] The `日本代表 突破シナリオ` section is visible.
-- [ ] The `今日見るべき試合ランキング` section is visible.
+- [ ] `これから見るべき試合` shows only today's unplayed matches whose kickoff is still ahead.
+- [ ] `今日の結果確認` shows only important or supported-team results and does not become a full finished-match list.
+- [ ] When no match remains today, `今日これから見る試合はありません。` and `次の注目試合` are visible.
+- [ ] When there is no match today, `今日は試合がありません。` and a `日程を見る` route are visible.
+- [ ] `次の注目試合` shows no more than three matches.
+- [ ] When every match is finished, Home shows `大会日程は終了しました` and routes to Schedule, Standings, and Tournament.
 - [ ] A supported-team settings button is visible and opens Settings.
 - [ ] Full group standings and the full 3rd-place line are not visible.
 - [ ] No `データエラー` is visible anywhere on the screen.
@@ -114,7 +114,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 
 ## Match Detail Screen
 
-- [ ] Tapping a match card or recommendation detail button opens the detail screen.
+- [ ] Tapping a match card opens the detail screen.
 - [ ] The match title is shown with country names and flag emoji where available.
 - [ ] date, kickoff time, round, score, and importance are shown.
 - [ ] Kickoff time uses `日本時間` wording.
@@ -129,7 +129,6 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 ## Calendar Download
 
 - [ ] A `.ics` file is downloaded from Match Detail after tapping `カレンダーに追加`.
-- [ ] A `.ics` file is downloaded from the Home recommendation card after tapping `カレンダーに追加`.
 - [ ] The file name includes the match id.
 - [ ] The file can be opened in a calendar app.
 - [ ] The event appears at the expected Japan time.

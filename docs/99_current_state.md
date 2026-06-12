@@ -32,13 +32,13 @@
 | 時間帯ラベル | 実装済み | `src/logic/timeOfDayLabel.ts` と試合カード・詳細での利用を確認 |
 | 日本代表＋推し国設定 | 実装済み | 日本代表は固定追跡対象。`src/App.tsx` の設定画面でメイン・追加の応援国を設定可能 |
 | localStorage保存 | 実装済み | `src/App.tsx` の `wc-watch-os:userPreferences` 読み書きを確認 |
-| 今日見るべき試合ランキング | 実装済み | `src/logic/matchImportance.ts` とHomeランキング表示を確認 |
+| Home試合レコメンド | 実装済み | Homeを「これから見るべき試合 / 今日の結果確認 / 次の注目試合」に整理。`src/logic/homeMatchSections.ts` が日本時間の現在時刻、終了状態、重要度、応援する国をもとに表示対象を抽出 |
 | 重要度S/A/B/C | 一部実装 | `src/logic/matchImportance.ts` でS/A/B/Cを決定論的に算出。主要UIでは `高 / 中 / 低` 表示へ変換している箇所あり |
 | グループ順位表 | 実装済み | `src/logic/standings.ts` と `src/App.tsx` の順位表示を確認 |
 | 3位通過ライン | 実装済み | `src/logic/thirdPlaceRanking.ts`、`thirdPlaceLine.ts` と表示を確認。詳細タイブレークは未反映 |
 | 暫定トーナメント表β | 一部実装 | 専用の「トーナメント」画面で推し国の道のりを先に表示し、R32〜準々決勝をブロックA〜Dの縦型アコーディオン、準決勝〜Finalを勝者枠の接続として表示。R32の1位・2位通過枠と接続順は公式schedule準拠。3位通過枠の正式割り当ては未確定で、勝敗予想は行わない |
 | 試合詳細 | 実装済み | `src/App.tsx` のMatch Detail画面を確認 |
-| ICSカレンダー追加 | 実装済み | `src/logic/ics.ts` とHome・Match Detailの導線を確認 |
+| ICSカレンダー追加 | 実装済み | `src/logic/ics.ts` とMatch Detailの導線を確認 |
 | 共有文コピー | 実装済み | `src/logic/shareCopy.ts` とHome・Match Detailの導線を確認 |
 | X共有カード生成 | 未実装 | Canvas/PNGの共有カード生成実装はrepo内で確認できない。共有文コピーのみ実装済み |
 | FIFA公式ソース表示 | 実装済み | `public/data/config.json` と `index.html` の共通フッターで確認 |
