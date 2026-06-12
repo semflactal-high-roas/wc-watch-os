@@ -1,4 +1,5 @@
 import type { Match } from '../types';
+import { toJstDateKey } from './dateFilters';
 import type { MatchWithImportance, UserPreferenceInput } from './matchImportance';
 
 export type HomeMatchSections = {
@@ -10,19 +11,6 @@ export type HomeMatchSections = {
 };
 
 const japanTeamId = 'JPN';
-const jstTimeZone = 'Asia/Tokyo';
-
-const getJstDateKey = (date: Date): string => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: jstTimeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
-  return `${value('year')}-${value('month')}-${value('day')}`;
-};
-
 const getKickoffTime = (match: Pick<Match, 'date' | 'kickoffTimeJST'>): number => {
   return new Date(`${match.date}T${match.kickoffTimeJST}:00+09:00`).getTime();
 };
@@ -52,7 +40,7 @@ export const getHomeMatchSections = (
   preferences: UserPreferenceInput,
   now: Date = new Date(),
 ): HomeMatchSections => {
-  const todayKey = getJstDateKey(now);
+  const todayKey = toJstDateKey(now);
   const trackedTeamIds = getTrackedTeamIds(preferences);
   const todayMatches = rankedMatches.filter((match) => match.date === todayKey);
 
