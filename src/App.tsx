@@ -9,6 +9,7 @@ import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japa
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { getRecommendationReason } from './logic/recommendationCopy';
+import { groupScheduleMatchesByDisplayState, type ScheduleDisplayState } from './logic/scheduleDisplayState';
 import { filterScheduleMatches, getScheduleFilterOptions, type ScheduleFilterId } from './logic/scheduleFilters';
 import { buildMatchShareText, copyTextToClipboard } from './logic/shareCopy';
 import { computeGroupStandings } from './logic/standings';
@@ -583,6 +584,7 @@ function ScheduleScreen({ data, preferences, rankedMatches, today, onMatchSelect
   const importanceByMatchId = new Map(rankedMatches.map((match) => [match.id, match]));
   const filterOptions = useMemo(() => getScheduleFilterOptions(data.matches, data.teams, preferences, today), [data.matches, data.teams, preferences, today]);
   const filterResult = useMemo(() => filterScheduleMatches(data.matches, data.teams, preferences, activeFilterId, today), [data.matches, data.teams, preferences, activeFilterId, today]);
+  const matchGroups = useMemo(() => groupScheduleMatchesByDisplayState(filterResult.matches, today), [filterResult.matches, today]);
   const emptyMessage = filterResult.message ?? 'この条件に合う試合はありません';
 
   return (
@@ -608,12 +610,41 @@ function ScheduleScreen({ data, preferences, rankedMatches, today, onMatchSelect
         {filterResult.matches.length === 0 ? (
           <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">{emptyMessage}</p>
         ) : (
-          <div className="space-y-3">
-            {filterResult.matches.map((match) => <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={data.teams} compact onSelect={() => onMatchSelect(match.id)} />)}
+          <div className="space-y-5">
+            <ScheduleMatchSection title="これからの試合" matches={matchGroups.upcoming} displayState="upcoming" importanceByMatchId={importanceByMatchId} teams={data.teams} onMatchSelect={onMatchSelect} />
+            <ScheduleMatchSection
+              title="進行中・結果待ち"
+              description="このアプリはリアルタイム速報ではありません。結果は確認後に手動更新されます。"
+              matches={matchGroups.started_awaiting_result}
+              displayState="started_awaiting_result"
+              importanceByMatchId={importanceByMatchId}
+              teams={data.teams}
+              onMatchSelect={onMatchSelect}
+            />
+            <ScheduleMatchSection title="終了済み" matches={matchGroups.finished} displayState="finished" importanceByMatchId={importanceByMatchId} teams={data.teams} onMatchSelect={onMatchSelect} />
           </div>
         )}
       </section>
     </div>
+  );
+}
+
+function ScheduleMatchSection({ title, description, matches, displayState, importanceByMatchId, teams, onMatchSelect }: { title: string; description?: string; matches: Match[]; displayState: ScheduleDisplayState; importanceByMatchId: Map<string, MatchWithImportance>; teams: Team[]; onMatchSelect: (matchId: string) => void }) {
+  return (
+    <section className="space-y-3" aria-labelledby={`schedule-${displayState}`}>
+      <div className="flex items-baseline justify-between gap-3 border-b border-slate-700 pb-2">
+        <h3 id={`schedule-${displayState}`} className="text-base font-semibold text-slate-50">{title}</h3>
+        <span className="shrink-0 text-xs font-semibold text-slate-400">{matches.length}試合</span>
+      </div>
+      {description && matches.length > 0 && <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">{description}</p>}
+      {matches.length === 0 ? (
+        <p className="rounded-xl bg-slate-800/60 px-3 py-3 text-sm text-slate-400">該当する試合はありません。</p>
+      ) : (
+        <div className="space-y-3">
+          {matches.map((match) => <MatchCard key={match.id} match={importanceByMatchId.get(match.id) ?? match} teams={teams} compact scheduleDisplayState={displayState} onSelect={() => onMatchSelect(match.id)} />)}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -657,8 +688,15 @@ function SettingsScreen({ data, preferences, onPreferencesChange, onBack }: { da
   );
 }
 
-function MatchCard({ match, teams, compact = false, showRank = false, onSelect }: { match: Match | MatchWithImportance; teams: Team[]; compact?: boolean; showRank?: boolean; onSelect?: () => void }) {
+function MatchCard({ match, teams, compact = false, showRank = false, scheduleDisplayState, onSelect }: { match: Match | MatchWithImportance; teams: Team[]; compact?: boolean; showRank?: boolean; scheduleDisplayState?: ScheduleDisplayState; onSelect?: () => void }) {
   const importance = 'importanceScore' in match ? match : null;
+  const scheduleStatus = scheduleDisplayState === 'finished'
+    ? { score: scoreLabel(match), label: '終了済み' }
+    : scheduleDisplayState === 'started_awaiting_result'
+      ? { score: '結果待ち', label: '開始済み' }
+      : scheduleDisplayState === 'upcoming'
+        ? { score: 'これから', label: '開始前' }
+        : null;
 
   return (
     <button type="button" onClick={onSelect} disabled={!onSelect} className={`w-full rounded-xl bg-slate-800 p-3 text-left ${onSelect ? 'transition hover:bg-slate-700' : 'cursor-default'}`}>
@@ -677,8 +715,8 @@ function MatchCard({ match, teams, compact = false, showRank = false, onSelect }
           {importance && !compact && <div className="mt-3 flex flex-wrap gap-2">{importance.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}</div>}
         </div>
         <div className="shrink-0 rounded-lg bg-slate-950 px-3 py-2 text-center">
-          <p className="text-sm font-bold text-cyan-300">{scoreLabel(match)}</p>
-          <p className="mt-1 text-xs text-slate-400">{matchStatusLabel(match)}</p>
+          <p className="text-sm font-bold text-cyan-300">{scheduleStatus?.score ?? scoreLabel(match)}</p>
+          <p className="mt-1 text-xs text-slate-400">{scheduleStatus?.label ?? matchStatusLabel(match)}</p>
         </div>
       </div>
     </button>

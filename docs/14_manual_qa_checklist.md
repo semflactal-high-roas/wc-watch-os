@@ -88,6 +88,10 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] `日本と同じ組` filters to the 6 Group F matches.
 - [ ] `すべて` shows all 72 group-stage matches.
 - [ ] The displayed match count updates after each filter change.
+- [ ] Filtered matches are grouped in the order `これからの試合`, `進行中・結果待ち`, and `終了済み`.
+- [ ] An unplayed match whose kickoff has passed appears under `進行中・結果待ち`, not `これからの試合`.
+- [ ] The `進行中・結果待ち` section explains that results are manually updated and does not imply live coverage.
+- [ ] Finished matches remain visible under `終了済み`.
 - [ ] Groups A-L matches can be found when `すべて` is selected.
 - [ ] Group K and Group L matches are visible when `すべて` is selected.
 - [ ] Tapping a filtered match card opens Match Detail.
