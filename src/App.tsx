@@ -9,7 +9,7 @@ import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japa
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { getRecommendationReason } from './logic/recommendationCopy';
-import { groupScheduleMatchesByDisplayState, type ScheduleDisplayState } from './logic/scheduleDisplayState';
+import { getScheduleDisplayStateLabel, getScheduleMatchStatusLabel, groupScheduleMatchesByDisplayState, type ScheduleDisplayState } from './logic/scheduleDisplayState';
 import { filterScheduleMatches, getScheduleFilterOptions, type ScheduleFilterId } from './logic/scheduleFilters';
 import { buildMatchShareText, copyTextToClipboard } from './logic/shareCopy';
 import { computeGroupStandings } from './logic/standings';
@@ -255,6 +255,7 @@ function App() {
             teams={data.teams}
             preferences={preferences}
             trackedTeamIds={trackedTeamIds}
+            today={today}
             returnScreen={detailReturnScreen}
             onBack={closeMatchDetail}
           />
@@ -691,11 +692,11 @@ function SettingsScreen({ data, preferences, onPreferencesChange, onBack }: { da
 function MatchCard({ match, teams, compact = false, showRank = false, scheduleDisplayState, onSelect }: { match: Match | MatchWithImportance; teams: Team[]; compact?: boolean; showRank?: boolean; scheduleDisplayState?: ScheduleDisplayState; onSelect?: () => void }) {
   const importance = 'importanceScore' in match ? match : null;
   const scheduleStatus = scheduleDisplayState === 'finished'
-    ? { score: scoreLabel(match), label: '終了済み' }
+    ? { score: scoreLabel(match), label: getScheduleDisplayStateLabel(scheduleDisplayState) }
     : scheduleDisplayState === 'started_awaiting_result'
-      ? { score: '結果待ち', label: '開始済み' }
+      ? { score: '結果待ち', label: getScheduleDisplayStateLabel(scheduleDisplayState) }
       : scheduleDisplayState === 'upcoming'
-        ? { score: 'これから', label: '開始前' }
+        ? { score: 'これから', label: getScheduleDisplayStateLabel(scheduleDisplayState) }
         : null;
 
   return (
@@ -723,7 +724,7 @@ function MatchCard({ match, teams, compact = false, showRank = false, scheduleDi
   );
 }
 
-function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnScreen, onBack }: { match: MatchWithImportance; teams: Team[]; preferences: UserPreferences; trackedTeamIds: string[]; returnScreen: MainScreen; onBack: () => void }) {
+function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, today, returnScreen, onBack }: { match: MatchWithImportance; teams: Team[]; preferences: UserPreferences; trackedTeamIds: string[]; today: Date; returnScreen: MainScreen; onBack: () => void }) {
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle');
   const viewingPoints = getViewingPoints(match, teams, preferences, trackedTeamIds);
   const impactItems = getImpactItems(match);
@@ -760,7 +761,7 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, returnSc
           <Metric label="キックオフ" value={`${match.kickoffTimeJST} 日本時間`} />
           <Metric label="時間帯" value={formatKickoffWithTimeOfDay(match.kickoffTimeJST)} />
           <Metric label="ラウンド" value={formatMatchStage(match)} />
-          <Metric label="状態" value={matchStatusLabel(match)} />
+          <Metric label="状態" value={getScheduleMatchStatusLabel(match, today)} />
           <Metric label="重要度" value={`${importanceLabelText(match.importanceLabel)} / ${match.importanceScore}点`} />
         </div>
         <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm leading-6 text-cyan-100">{getJstViewingHint(match.kickoffTimeJST)}</p>

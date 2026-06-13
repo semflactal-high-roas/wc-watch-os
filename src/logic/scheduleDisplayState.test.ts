@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Match } from '../types';
-import { classifyScheduleMatch, groupScheduleMatchesByDisplayState } from './scheduleDisplayState';
+import {
+  classifyScheduleMatch,
+  getScheduleDisplayStateLabel,
+  getScheduleMatchStatusLabel,
+  groupScheduleMatchesByDisplayState,
+} from './scheduleDisplayState';
 
 const match = (id: string, overrides: Partial<Match> = {}): Match => ({
   id,
@@ -44,5 +49,20 @@ describe('schedule display state', () => {
     expect(groups.started_awaiting_result.map((item) => item.id)).toEqual(['started']);
     expect(groups.finished.map((item) => item.id)).toEqual(['finished']);
     expect(Object.values(groups).flat()).toHaveLength(matches.length);
+  });
+
+  it('uses the shared classification for the started match detail status label', () => {
+    const started = match('started', { kickoffTimeJST: '14:00' });
+
+    expect(getScheduleMatchStatusLabel(started, now)).toBe('開始済み / 結果待ち');
+    expect(getScheduleMatchStatusLabel(started, now)).toBe(getScheduleDisplayStateLabel(classifyScheduleMatch(started, now)));
+  });
+
+  it('prioritizes played for the match detail status label', () => {
+    expect(getScheduleMatchStatusLabel(match('finished', { played: true, kickoffTimeJST: '18:00' }), now)).toBe('終了済み');
+  });
+
+  it('uses the upcoming classification for the match detail status label before kickoff', () => {
+    expect(getScheduleMatchStatusLabel(match('upcoming'), now)).toBe('開始前');
   });
 });
