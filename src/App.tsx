@@ -594,9 +594,7 @@ function RecentFinishedResultsSection({
           <div key={match.id} className="space-y-2">
             <MatchCard match={match} teams={teams} compact onSelect={() => onMatchSelect(match.id)} />
             <p className="rounded-lg bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-300">
-              {match.played
-                ? '結果が順位表・3位通過ラインと、現在順位ベースの暫定トーナメント表に反映されています。'
-                : getFinishedMatchResultMessage(match) ?? '結果確認後、順位と暫定トーナメント表の組み合わせを確認してください。'}
+              {getFinishedMatchResultMessage(match) ?? '結果確認後、順位と暫定トーナメント表の組み合わせを確認してください。'}
             </p>
           </div>
         ))}
