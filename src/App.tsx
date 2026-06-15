@@ -6,7 +6,7 @@ import { getHomeMatchSections, isUpcomingMatch, type HomeMatchSections } from '.
 import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
 import { getJapanMatchImpactItems } from './logic/japanMatchImpact';
 import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japanScenario';
-import { isFinishedMatchForDisplay } from './logic/matchDisplayStatus';
+import { getFinishedMatchResultMessage, isFinishedMatchForDisplay } from './logic/matchDisplayStatus';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { getRecommendationReason } from './logic/recommendationCopy';
@@ -802,14 +802,18 @@ const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences
   if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) points.push('応援中の国が関係する試合です。');
   if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('応援する国と同組のため、順位に影響する可能性があります。');
   if (match.stage === 'group') points.push('3位通過ラインに関わる可能性があります。');
-  if (isFinishedMatchForDisplay(match)) points.push('終了した試合です。現在の順位表・3位通過ラインに結果が反映されています。');
+  const finishedResultMessage = getFinishedMatchResultMessage(match);
+  if (finishedResultMessage) points.push(finishedResultMessage);
   if (points.length === 0) points.push('今後のラウンドや他会場結果を見るうえで参考になる試合です。');
 
   return [...new Set(points)];
 };
 
 const getImpactItems = (match: Match): { label: string; text: string }[] => {
-  if (isFinishedMatchForDisplay(match)) return [{ label: '終了済み', text: 'この試合は終了済みです。現在の順位表・3位通過ラインに結果が反映されています。' }];
+  const finishedResultMessage = getFinishedMatchResultMessage(match);
+  if (finishedResultMessage) {
+    return [{ label: match.played ? '終了済み' : '終了済み / 結果待ち', text: finishedResultMessage }];
+  }
 
   return [
     { label: '勝利時', text: '勝点3を積み上げ、突破圏に近づきます。' },
