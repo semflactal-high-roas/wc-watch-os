@@ -10,23 +10,29 @@ const preferences: UserPreferenceInput = {
 const match = (
   id: string,
   overrides: Partial<MatchWithImportance> = {},
-): MatchWithImportance => ({
-  id,
-  homeTeamId: 'AAA',
-  awayTeamId: 'BBB',
-  homeScore: null,
-  awayScore: null,
-  played: false,
-  date: '2026-06-12',
-  kickoffTimeJST: '18:00',
-  groupId: 'A',
-  stage: 'group',
-  importanceScore: 70,
-  importanceRank: 1,
-  importanceLabel: 'A',
-  reasonTags: [],
-  ...overrides,
-});
+): MatchWithImportance => {
+  const importanceScore = overrides.importanceScore ?? 70;
+  const importanceLabel = overrides.importanceLabel ?? 'A';
+  return {
+    id,
+    homeTeamId: 'AAA',
+    awayTeamId: 'BBB',
+    homeScore: null,
+    awayScore: null,
+    played: false,
+    date: '2026-06-12',
+    kickoffTimeJST: '18:00',
+    groupId: 'A',
+    stage: 'group',
+    importanceScore,
+    importanceRank: 1,
+    importanceLabel,
+    preMatchImportanceScore: overrides.preMatchImportanceScore ?? importanceScore,
+    preMatchImportanceLabel: overrides.preMatchImportanceLabel ?? importanceLabel,
+    reasonTags: [],
+    ...overrides,
+  };
+};
 
 const now = new Date('2026-06-12T03:00:00Z');
 
@@ -109,6 +115,41 @@ describe('getHomeMatchSections', () => {
     ], preferences, resultNow);
 
     expect(sections.recentFinishedImportantMatches.map((item) => item.id)).toEqual(['recent-result']);
+  });
+
+  it('keeps a recent pre-match important result after display importance falls to C across JST midnight', () => {
+    const resultNow = new Date('2026-06-13T03:00:00Z'); // 12:00 JST
+    const sections = getHomeMatchSections([
+      match('recent-final', {
+        played: true,
+        date: '2026-06-12',
+        kickoffTimeJST: '13:00',
+        stage: 'final',
+        importanceScore: 0,
+        importanceLabel: 'C',
+        preMatchImportanceScore: 90,
+        preMatchImportanceLabel: 'S',
+      }),
+    ], preferences, resultNow);
+
+    expect(sections.recentFinishedImportantMatches.map((item) => item.id)).toEqual(['recent-final']);
+  });
+
+  it('continues to exclude an unrelated low-importance recent result', () => {
+    const resultNow = new Date('2026-06-13T03:00:00Z'); // 12:00 JST
+    const sections = getHomeMatchSections([
+      match('low-result', {
+        played: true,
+        date: '2026-06-12',
+        kickoffTimeJST: '13:00',
+        importanceScore: -50,
+        importanceLabel: 'C',
+        preMatchImportanceScore: 40,
+        preMatchImportanceLabel: 'B',
+      }),
+    ], preferences, resultNow);
+
+    expect(sections.recentFinishedImportantMatches).toEqual([]);
   });
 
   it('returns at most three next featured matches when the 36-hour window has no upcoming match', () => {

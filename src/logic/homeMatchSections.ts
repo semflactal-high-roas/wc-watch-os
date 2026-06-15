@@ -33,8 +33,8 @@ const isTrackedTeamMatch = (match: MatchWithImportance, trackedTeamIds: string[]
   return trackedTeamIds.some((teamId) => matchIncludesTeam(match, teamId));
 };
 
-const isHighImportance = (match: MatchWithImportance): boolean => {
-  return match.importanceLabel === 'S' || match.importanceLabel === 'A';
+const isHighResultImportance = (match: MatchWithImportance): boolean => {
+  return match.preMatchImportanceLabel === 'S' || match.preMatchImportanceLabel === 'A';
 };
 
 const sortByWatchPriority = (a: MatchWithImportance, b: MatchWithImportance): number => {
@@ -42,7 +42,7 @@ const sortByWatchPriority = (a: MatchWithImportance, b: MatchWithImportance): nu
 };
 
 const sortByResultPriority = (a: MatchWithImportance, b: MatchWithImportance): number => {
-  return b.importanceScore - a.importanceScore || getKickoffTime(b) - getKickoffTime(a) || a.id.localeCompare(b.id);
+  return b.preMatchImportanceScore - a.preMatchImportanceScore || getKickoffTime(b) - getKickoffTime(a) || a.id.localeCompare(b.id);
 };
 
 export const getHomeMatchSections = (
@@ -64,7 +64,7 @@ export const getHomeMatchSections = (
       return isFinishedMatchForDisplay(match)
         && kickoffTime >= resultWindowStart
         && kickoffTime <= now.getTime()
-        && (isHighImportance(match) || isTrackedTeamMatch(match, trackedTeamIds));
+        && (isHighResultImportance(match) || isTrackedTeamMatch(match, trackedTeamIds));
     })
     .sort(sortByResultPriority)
     .slice(0, homeMatchLimit);
