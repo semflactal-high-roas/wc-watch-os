@@ -41,6 +41,14 @@ describe('getHomeMatchSections', () => {
     expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['upcoming']);
   });
 
+  it('excludes a status-finished match from upcoming watch matches without changing the match schema', () => {
+    const statusFinishedMatch = { ...match('status-finished'), status: 'finished' };
+    const sections = getHomeMatchSections([statusFinishedMatch], preferences, now);
+
+    expect(sections.upcomingWatchMatches).toEqual([]);
+    expect(sections.todayFinishedImportantMatches.map((item) => item.id)).toEqual(['status-finished']);
+  });
+
   it('shows only important or tracked finished matches in today results', () => {
     const sections = getHomeMatchSections([
       match('important', { played: true, importanceLabel: 'A' }),
@@ -61,6 +69,15 @@ describe('getHomeMatchSections', () => {
     ], preferences, now);
 
     expect(sections.nextFeaturedMatches.map((item) => item.id)).toEqual(['next-1', 'next-2', 'next-3']);
+  });
+
+  it('returns next featured matches when every match today has already finished', () => {
+    const sections = getHomeMatchSections([
+      match('finished-today', { played: true }),
+      match('next', { date: '2026-06-13' }),
+    ], preferences, now);
+
+    expect(sections.nextFeaturedMatches.map((item) => item.id)).toEqual(['next']);
   });
 
   it('does not return next featured matches while an upcoming match exists today', () => {

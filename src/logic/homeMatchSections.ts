@@ -1,5 +1,6 @@
 import type { Match } from '../types';
 import { toJstDateKey } from './dateFilters';
+import { isFinishedMatchForDisplay } from './matchDisplayStatus';
 import type { MatchWithImportance, UserPreferenceInput } from './matchImportance';
 
 export type HomeMatchSections = {
@@ -16,7 +17,7 @@ const getKickoffTime = (match: Pick<Match, 'date' | 'kickoffTimeJST'>): number =
 };
 
 export const isUpcomingMatch = (match: Match, now: Date = new Date()): boolean => {
-  return !match.played && getKickoffTime(match) >= now.getTime();
+  return !isFinishedMatchForDisplay(match) && getKickoffTime(match) >= now.getTime();
 };
 
 const matchIncludesTeam = (match: MatchWithImportance, teamId: string): boolean => {
@@ -46,7 +47,7 @@ export const getHomeMatchSections = (
 
   const upcomingWatchMatches = todayMatches.filter((match) => isUpcomingMatch(match, now));
   const todayFinishedImportantMatches = todayMatches.filter(
-    (match) => match.played && (isHighImportance(match) || isTrackedTeamMatch(match, trackedTeamIds)),
+    (match) => isFinishedMatchForDisplay(match) && (isHighImportance(match) || isTrackedTeamMatch(match, trackedTeamIds)),
   );
   const nextFeaturedMatches = upcomingWatchMatches.length > 0
       ? []
@@ -60,6 +61,6 @@ export const getHomeMatchSections = (
     todayFinishedImportantMatches,
     nextFeaturedMatches,
     hasTodayMatches: todayMatches.length > 0,
-    tournamentFinished: rankedMatches.length > 0 && rankedMatches.every((match) => match.played),
+    tournamentFinished: rankedMatches.length > 0 && rankedMatches.every(isFinishedMatchForDisplay),
   };
 };

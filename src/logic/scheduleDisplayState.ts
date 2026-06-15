@@ -1,4 +1,5 @@
 import type { Match } from '../types';
+import { isFinishedMatchForDisplay } from './matchDisplayStatus';
 
 export type ScheduleDisplayState = 'upcoming' | 'started_awaiting_result' | 'finished';
 
@@ -15,7 +16,7 @@ const getKickoffTime = (match: Pick<Match, 'date' | 'kickoffTimeJST'>): number =
 };
 
 export const classifyScheduleMatch = (match: Match, now: Date = new Date()): ScheduleDisplayState => {
-  if (match.played) return 'finished';
+  if (isFinishedMatchForDisplay(match)) return 'finished';
   if (getKickoffTime(match) <= now.getTime()) return 'started_awaiting_result';
   return 'upcoming';
 };

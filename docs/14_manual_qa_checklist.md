@@ -159,12 +159,17 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 ## Mobile Layout
 
 - [ ] At an iPhone-like width, no horizontal scrolling occurs.
-- [ ] Bottom navigation is tappable.
+- [ ] Bottom navigation shows four readable, tappable tabs: `ホーム`, `日程`, `順位`, and `トーナメント`.
+- [ ] Home shows the current viewing decision near the top without requiring horizontal scrolling.
 - [ ] Schedule filter buttons wrap cleanly and remain tappable.
+- [ ] Schedule sections `これからの試合`, `進行中・結果待ち`, and `終了済み` remain readable.
+- [ ] Standings group rows and the 3rd-place line remain readable without horizontal scrolling.
+- [ ] The provisional tournament bracket beta remains readable without horizontal scrolling.
+- [ ] Settings remains reachable from Home, and saved preferences survive a refresh through `localStorage`.
 - [ ] Recommendation card buttons are large enough to tap comfortably and do not conflict with each other.
 - [ ] Share and calendar buttons remain easy to tap on mobile.
 - [ ] Card text does not collapse or overflow badly.
-- [ ] Home, Schedule, Settings, and Match Detail core flows can be used on mobile.
+- [ ] Home, Schedule, Standings, Tournament, Settings, and Match Detail core flows can be used on mobile.
 
 ## QA Result Record
 

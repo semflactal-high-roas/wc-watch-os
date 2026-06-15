@@ -32,4 +32,14 @@ describe('rankMatchesByImportance JST date scoring', () => {
     expect(ranked.importanceScore).toBe(60);
     expect(ranked.importanceLabel).toBe('A');
   });
+
+  it('does not tag status finished as upcoming', () => {
+    const statusFinishedFinal = { ...final, played: false, status: 'finished' };
+    const [ranked] = rankMatchesByImportance([statusFinishedFinal], teams, groups, { mainFavoriteTeamId: '', selectedTeamIds: [] }, new Date('2026-06-11T15:30:00Z'));
+    expect(ranked).toBeDefined();
+    if (!ranked) throw new Error('Expected ranked match');
+
+    expect(ranked.reasonTags).toContain('終了');
+    expect(ranked.reasonTags).not.toContain('これから');
+  });
 });
