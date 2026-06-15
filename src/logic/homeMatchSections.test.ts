@@ -52,61 +52,81 @@ describe('getHomeMatchSections', () => {
   });
 
   it('excludes a status-finished match from upcoming watch matches without changing the match schema', () => {
-    const statusFinishedMatch = { ...match('status-finished'), status: 'finished' };
+    const statusFinishedMatch = { ...match('status-finished', { kickoffTimeJST: '11:00' }), status: 'finished' };
     const sections = getHomeMatchSections([statusFinishedMatch], preferences, now);
 
     expect(sections.upcomingWatchMatches).toEqual([]);
-    expect(sections.todayFinishedImportantMatches.map((item) => item.id)).toEqual(['status-finished']);
+    expect(sections.recentFinishedImportantMatches.map((item) => item.id)).toEqual(['status-finished']);
   });
 
-  it('shows only important or tracked finished matches in today results', () => {
+  it('shows only important or tracked finished matches in recent results', () => {
     const sections = getHomeMatchSections([
-      match('important', { played: true, importanceLabel: 'A' }),
-      match('tracked', { played: true, homeTeamId: 'NED', importanceLabel: 'C' }),
-      match('low', { played: true, importanceLabel: 'C' }),
+      match('important', { played: true, kickoffTimeJST: '11:00', importanceLabel: 'A' }),
+      match('tracked', { played: true, kickoffTimeJST: '11:00', homeTeamId: 'NED', importanceLabel: 'C' }),
+      match('low', { played: true, kickoffTimeJST: '11:00', importanceLabel: 'C' }),
     ], preferences, now);
 
-    expect(sections.todayFinishedImportantMatches.map((item) => item.id)).toEqual(['important', 'tracked']);
+    expect(sections.recentFinishedImportantMatches.map((item) => item.id)).toEqual(['important', 'tracked']);
   });
 
-  it('prioritizes upcoming watch matches by importance and returns at most three', () => {
+  it('includes tomorrow morning matches within the next 36 hours and prioritizes at most three', () => {
     const sections = getHomeMatchSections([
       match('low', { importanceScore: 30, importanceLabel: 'C' }),
       match('highest', { importanceScore: 100, importanceLabel: 'S' }),
       match('middle', { importanceScore: 50, importanceLabel: 'B' }),
       match('high', { importanceScore: 80, importanceLabel: 'S' }),
+      match('tomorrow-morning', { date: '2026-06-13', kickoffTimeJST: '04:00', importanceScore: 90, importanceLabel: 'S' }),
     ], preferences, now);
 
-    expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['highest', 'high', 'middle']);
+    expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['highest', 'tomorrow-morning', 'high']);
   });
 
-  it('returns at most three important or tracked finished matches for today results', () => {
+  it('excludes an unstarted match beyond the 36-hour viewing decision window', () => {
     const sections = getHomeMatchSections([
-      match('result-1', { played: true, importanceScore: 100, importanceLabel: 'S' }),
-      match('result-2', { played: true, importanceScore: 90, importanceLabel: 'S' }),
-      match('result-3', { played: true, importanceScore: 80, importanceLabel: 'S' }),
-      match('result-4', { played: true, importanceScore: 70, importanceLabel: 'A' }),
+      match('inside-window', { date: '2026-06-13', kickoffTimeJST: '23:59' }),
+      match('outside-window', { date: '2026-06-14', kickoffTimeJST: '00:01' }),
     ], preferences, now);
 
-    expect(sections.todayFinishedImportantMatches.map((item) => item.id)).toEqual(['result-1', 'result-2', 'result-3']);
+    expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['inside-window']);
   });
 
-  it('returns at most three next featured matches when today has no upcoming match', () => {
+  it('returns at most three important or tracked finished matches for recent results', () => {
     const sections = getHomeMatchSections([
-      match('next-1', { date: '2026-06-13' }),
-      match('next-2', { date: '2026-06-14', homeTeamId: 'JPN', importanceLabel: 'C' }),
-      match('next-3', { date: '2026-06-15' }),
-      match('next-4', { date: '2026-06-16' }),
-      match('not-featured', { date: '2026-06-13', importanceLabel: 'C' }),
+      match('result-1', { played: true, kickoffTimeJST: '11:00', importanceScore: 100, importanceLabel: 'S' }),
+      match('result-2', { played: true, kickoffTimeJST: '11:00', importanceScore: 90, importanceLabel: 'S' }),
+      match('result-3', { played: true, kickoffTimeJST: '11:00', importanceScore: 80, importanceLabel: 'S' }),
+      match('result-4', { played: true, kickoffTimeJST: '11:00', importanceScore: 70, importanceLabel: 'A' }),
+    ], preferences, now);
+
+    expect(sections.recentFinishedImportantMatches.map((item) => item.id)).toEqual(['result-1', 'result-2', 'result-3']);
+  });
+
+  it('includes an important finished match from the last 24 hours but excludes older results', () => {
+    const resultNow = new Date('2026-06-13T03:00:00Z'); // 12:00 JST
+    const sections = getHomeMatchSections([
+      match('recent-result', { played: true, date: '2026-06-12', kickoffTimeJST: '13:00', importanceLabel: 'A' }),
+      match('old-result', { played: true, date: '2026-06-12', kickoffTimeJST: '11:59', importanceLabel: 'A' }),
+    ], preferences, resultNow);
+
+    expect(sections.recentFinishedImportantMatches.map((item) => item.id)).toEqual(['recent-result']);
+  });
+
+  it('returns at most three next featured matches when the 36-hour window has no upcoming match', () => {
+    const sections = getHomeMatchSections([
+      match('next-1', { date: '2026-06-14' }),
+      match('next-2', { date: '2026-06-15', homeTeamId: 'JPN', importanceLabel: 'C' }),
+      match('next-3', { date: '2026-06-16' }),
+      match('next-4', { date: '2026-06-17' }),
+      match('not-featured', { date: '2026-06-14', importanceLabel: 'C', importanceScore: 30 }),
     ], preferences, now);
 
     expect(sections.nextFeaturedMatches.map((item) => item.id)).toEqual(['next-1', 'next-2', 'next-3']);
   });
 
-  it('returns next featured matches when every match today has already finished', () => {
+  it('returns next featured matches when every near-term match has already finished', () => {
     const sections = getHomeMatchSections([
-      match('finished-today', { played: true }),
-      match('next', { date: '2026-06-13' }),
+      match('finished-today', { played: true, kickoffTimeJST: '11:00' }),
+      match('next', { date: '2026-06-14' }),
     ], preferences, now);
 
     expect(sections.nextFeaturedMatches.map((item) => item.id)).toEqual(['next']);
