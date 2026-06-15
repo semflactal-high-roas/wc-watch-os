@@ -18,7 +18,7 @@ const getKickoffTime = (match: Pick<Match, 'date' | 'kickoffTimeJST'>): number =
 };
 
 export const isUpcomingMatch = (match: Match, now: Date = new Date()): boolean => {
-  return !isFinishedMatchForDisplay(match) && getKickoffTime(match) >= now.getTime();
+  return !isFinishedMatchForDisplay(match) && getKickoffTime(match) > now.getTime();
 };
 
 const matchIncludesTeam = (match: MatchWithImportance, teamId: string): boolean => {

@@ -41,6 +41,16 @@ describe('getHomeMatchSections', () => {
     expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['upcoming']);
   });
 
+  it('excludes a match at the exact kickoff time from upcoming watch matches', () => {
+    const kickoffNow = new Date('2026-06-12T09:00:00Z');
+    const sections = getHomeMatchSections([
+      match('kickoff-now'),
+      match('still-upcoming', { kickoffTimeJST: '18:01' }),
+    ], preferences, kickoffNow);
+
+    expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['still-upcoming']);
+  });
+
   it('excludes a status-finished match from upcoming watch matches without changing the match schema', () => {
     const statusFinishedMatch = { ...match('status-finished'), status: 'finished' };
     const sections = getHomeMatchSections([statusFinishedMatch], preferences, now);
