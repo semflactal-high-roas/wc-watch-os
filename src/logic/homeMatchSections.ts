@@ -1,18 +1,18 @@
 import type { Match } from '../types';
-import { toJstDateKey } from './dateFilters';
 import { isFinishedMatchForDisplay } from './matchDisplayStatus';
 import type { MatchWithImportance, UserPreferenceInput } from './matchImportance';
 
 export type HomeMatchSections = {
   upcomingWatchMatches: MatchWithImportance[];
-  todayFinishedImportantMatches: MatchWithImportance[];
+  recentFinishedImportantMatches: MatchWithImportance[];
   nextFeaturedMatches: MatchWithImportance[];
-  hasTodayMatches: boolean;
   tournamentFinished: boolean;
 };
 
 const japanTeamId = 'JPN';
 const homeMatchLimit = 3;
+const viewingDecisionWindowMs = 36 * 60 * 60 * 1000;
+const resultReviewWindowMs = 24 * 60 * 60 * 1000;
 const getKickoffTime = (match: Pick<Match, 'date' | 'kickoffTimeJST'>): number => {
   return new Date(`${match.date}T${match.kickoffTimeJST}:00+09:00`).getTime();
 };
@@ -33,12 +33,16 @@ const isTrackedTeamMatch = (match: MatchWithImportance, trackedTeamIds: string[]
   return trackedTeamIds.some((teamId) => matchIncludesTeam(match, teamId));
 };
 
-const isHighImportance = (match: MatchWithImportance): boolean => {
-  return match.importanceLabel === 'S' || match.importanceLabel === 'A';
+const isHighResultImportance = (match: MatchWithImportance): boolean => {
+  return match.preMatchImportanceLabel === 'S' || match.preMatchImportanceLabel === 'A';
 };
 
 const sortByWatchPriority = (a: MatchWithImportance, b: MatchWithImportance): number => {
   return b.importanceScore - a.importanceScore || getKickoffTime(a) - getKickoffTime(b) || a.id.localeCompare(b.id);
+};
+
+const sortByResultPriority = (a: MatchWithImportance, b: MatchWithImportance): number => {
+  return b.preMatchImportanceScore - a.preMatchImportanceScore || getKickoffTime(b) - getKickoffTime(a) || a.id.localeCompare(b.id);
 };
 
 export const getHomeMatchSections = (
@@ -46,30 +50,35 @@ export const getHomeMatchSections = (
   preferences: UserPreferenceInput,
   now: Date = new Date(),
 ): HomeMatchSections => {
-  const todayKey = toJstDateKey(now);
   const trackedTeamIds = getTrackedTeamIds(preferences);
-  const todayMatches = rankedMatches.filter((match) => match.date === todayKey);
+  const decisionWindowEnd = now.getTime() + viewingDecisionWindowMs;
+  const resultWindowStart = now.getTime() - resultReviewWindowMs;
 
-  const upcomingWatchMatches = todayMatches
-    .filter((match) => isUpcomingMatch(match, now))
+  const upcomingWatchMatches = rankedMatches
+    .filter((match) => isUpcomingMatch(match, now) && getKickoffTime(match) <= decisionWindowEnd)
     .sort(sortByWatchPriority)
     .slice(0, homeMatchLimit);
-  const todayFinishedImportantMatches = todayMatches
-    .filter((match) => isFinishedMatchForDisplay(match) && (isHighImportance(match) || isTrackedTeamMatch(match, trackedTeamIds)))
-    .sort(sortByWatchPriority)
+  const recentFinishedImportantMatches = rankedMatches
+    .filter((match) => {
+      const kickoffTime = getKickoffTime(match);
+      return isFinishedMatchForDisplay(match)
+        && kickoffTime >= resultWindowStart
+        && kickoffTime <= now.getTime()
+        && (isHighResultImportance(match) || isTrackedTeamMatch(match, trackedTeamIds));
+    })
+    .sort(sortByResultPriority)
     .slice(0, homeMatchLimit);
   const nextFeaturedMatches = upcomingWatchMatches.length > 0
     ? []
     : rankedMatches
-      .filter((match) => isUpcomingMatch(match, now) && (isHighImportance(match) || isTrackedTeamMatch(match, trackedTeamIds)))
+      .filter((match) => isUpcomingMatch(match, now))
       .sort(sortByWatchPriority)
       .slice(0, homeMatchLimit);
 
   return {
     upcomingWatchMatches,
-    todayFinishedImportantMatches,
+    recentFinishedImportantMatches,
     nextFeaturedMatches,
-    hasTodayMatches: todayMatches.length > 0,
     tournamentFinished: rankedMatches.length > 0 && rankedMatches.every(isFinishedMatchForDisplay),
   };
 };

@@ -13,8 +13,13 @@ export type MatchWithImportance = Match & {
   importanceScore: number;
   importanceRank: number;
   importanceLabel: MatchImportanceLabel;
+  preMatchImportanceScore: number;
+  preMatchImportanceLabel: MatchImportanceLabel;
   reasonTags: string[];
 };
+
+type ScoredImportance = Pick<MatchWithImportance, 'importanceScore' | 'importanceLabel' | 'reasonTags'>;
+type ImportanceTiming = 'current' | 'pre_match';
 
 const knockoutStageScores: Partial<Record<MatchStage, number>> = {
   round_of_32: 20,
@@ -68,7 +73,8 @@ const scoreMatch = (
   groups: Group[],
   preferences: UserPreferenceInput,
   today: Date,
-): Omit<MatchWithImportance, keyof Match | 'importanceRank'> => {
+  timing: ImportanceTiming = 'current',
+): ScoredImportance => {
   let importanceScore = 0;
   const reasonTags: string[] = [];
   const japanTeamId = findJapanTeamId(teams);
@@ -90,23 +96,33 @@ const scoreMatch = (
     reasonTags.push('一緒に追いかける国の試合');
   }
 
-  if (isFinishedMatchForDisplay(match)) {
-    importanceScore -= 20;
-    reasonTags.push('終了');
-  } else {
+  if (timing === 'pre_match') {
     importanceScore += 10;
     reasonTags.push('これから');
+  } else {
+    if (isFinishedMatchForDisplay(match)) {
+      importanceScore -= 20;
+      reasonTags.push('終了');
+    } else {
+      importanceScore += 10;
+      reasonTags.push('これから');
+    }
   }
 
-  if (isTodayMatch(match, today)) {
+  if (timing === 'pre_match') {
     importanceScore += 30;
-    reasonTags.push('今日');
-  } else if (isTomorrowMatch(match, today)) {
-    importanceScore += 15;
-    reasonTags.push('明日');
-  } else if (isPastMatch(match, today)) {
-    importanceScore -= 30;
-    reasonTags.push('過去日程');
+    reasonTags.push('試合当日');
+  } else {
+    if (isTodayMatch(match, today)) {
+      importanceScore += 30;
+      reasonTags.push('今日');
+    } else if (isTomorrowMatch(match, today)) {
+      importanceScore += 15;
+      reasonTags.push('明日');
+    } else if (isPastMatch(match, today)) {
+      importanceScore -= 30;
+      reasonTags.push('過去日程');
+    }
   }
 
   if (targetTeamIds.length > 0 && match.stage === 'group' && isSameGroupMatch(match, teams, groups, targetTeamIds)) {
@@ -135,11 +151,17 @@ export const rankMatchesByImportance = (
   today: Date = new Date(),
 ): MatchWithImportance[] => {
   return matches
-    .map((match) => ({
-      ...match,
-      ...scoreMatch(match, teams, groups, preferences, today),
-      importanceRank: 0,
-    }))
+    .map((match) => {
+      const currentImportance = scoreMatch(match, teams, groups, preferences, today);
+      const preMatchImportance = scoreMatch(match, teams, groups, preferences, today, 'pre_match');
+      return {
+        ...match,
+        ...currentImportance,
+        preMatchImportanceScore: preMatchImportance.importanceScore,
+        preMatchImportanceLabel: preMatchImportance.importanceLabel,
+        importanceRank: 0,
+      };
+    })
     .sort(
       (a, b) =>
         b.importanceScore - a.importanceScore ||

@@ -37,7 +37,7 @@ function MatchCard({ match, teams }: { match: BracketMatch; teams: Team[] }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-bold text-violet-200">Match {match.id}</p>
         <div className="flex flex-wrap gap-1">
-          {match.isFavoritePath && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">推し国のルート</span>}
+          {match.isFavoritePath && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">推し国の想定対戦ルート</span>}
           {!match.isOfficialSlotConfirmed && <span className="rounded-full bg-amber-300/15 px-2 py-1 text-xs font-bold text-amber-200">要確認</span>}
         </div>
       </div>
@@ -151,17 +151,17 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
       </section>
 
       <section className="space-y-3 rounded-2xl border border-cyan-300/30 bg-slate-900 p-4 shadow-lg">
-        <h2 className="text-lg font-semibold text-cyan-200">推し国の道のり</h2>
+        <h2 className="text-lg font-semibold text-cyan-200">推し国の想定対戦ルート</h2>
         {!favoriteTeam ? (
-          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">メイン推し国を設定すると、現在順位ベースの暫定ルートを表示します。</p>
+          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">メイン推し国を設定すると、現在順位ベースの想定対戦ルートを表示します。</p>
         ) : !favoriteRound32 ? (
           <div className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">
-            <p className="font-bold text-slate-100">推し国の道のりは未確定です。</p>
+            <p className="font-bold text-slate-100">推し国の想定対戦ルートは未確定です。</p>
             <p className="mt-1">現在の暫定R32枠にメイン推し国が入っていないため、正式な組み合わせ確定後に確認してください。</p>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm font-semibold">{teamName(data.teams, favoriteTeam.id)} の暫定ルート</p>
+            <p className="text-sm font-semibold">{teamName(data.teams, favoriteTeam.id)} の想定対戦ルート</p>
             <div>
               <p className="mb-2 text-xs font-bold text-slate-400">現在の暫定R32</p>
               <MatchCard match={favoriteRound32} teams={data.teams} />
@@ -212,7 +212,7 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
         </div>
         {favoriteBlock && (
           <p className="rounded-xl bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-300">
-            推し国がこの暫定ルートを進む場合、反対側の準決勝につながるブロックとは決勝まで当たりません。
+            推し国がこの想定対戦ルートを進む場合、反対側の準決勝につながるブロックとは決勝まで当たりません。
           </p>
         )}
       </section>

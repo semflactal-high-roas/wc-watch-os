@@ -31,6 +31,8 @@ describe('rankMatchesByImportance JST date scoring', () => {
     expect(ranked.reasonTags).toContain('今日');
     expect(ranked.importanceScore).toBe(60);
     expect(ranked.importanceLabel).toBe('A');
+    expect(ranked.preMatchImportanceScore).toBe(90);
+    expect(ranked.preMatchImportanceLabel).toBe('S');
   });
 
   it('does not tag status finished as upcoming', () => {
@@ -41,5 +43,15 @@ describe('rankMatchesByImportance JST date scoring', () => {
 
     expect(ranked.reasonTags).toContain('終了');
     expect(ranked.reasonTags).not.toContain('これから');
+  });
+
+  it('preserves pre-match importance after a finished match crosses JST midnight', () => {
+    const recentFinal = { ...final, date: '2026-06-12', kickoffTimeJST: '13:00' };
+    const [ranked] = rankMatchesByImportance([recentFinal], teams, groups, { mainFavoriteTeamId: '', selectedTeamIds: [] }, new Date('2026-06-13T03:00:00Z'));
+    expect(ranked).toBeDefined();
+    if (!ranked) throw new Error('Expected ranked match');
+
+    expect(ranked.importanceLabel).toBe('C');
+    expect(ranked.preMatchImportanceLabel).toBe('S');
   });
 });

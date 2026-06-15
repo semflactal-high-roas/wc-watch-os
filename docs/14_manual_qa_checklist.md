@@ -62,22 +62,17 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 ## Home Screen
 
 - [ ] The page renders without a browser or app error.
-- [ ] `これから見るべき試合` or `次の注目試合` is the first Home section and shows no more than three matches.
-- [ ] Primary recommendation cards show the S/A/B/C importance code, a short viewing reason, and a route to Match Detail / calendar addition.
-- [ ] `これから見るべき試合` never shows a finished or already-started match.
-- [ ] Qualification status cards are visible.
-- [ ] The `日本代表の次戦` section is visible and shows one match.
-- [ ] The `推し国の次戦` section shows the configured main supported team's next match or setup guidance.
-- [ ] The `日本代表 突破シナリオ` section is visible.
-- [ ] `これから見るべき試合` shows only today's unplayed matches whose kickoff is still ahead.
-- [ ] `今日の結果確認` shows only important or supported-team results and does not become a full finished-match list.
-- [ ] `日本代表の次戦`, `推し国の次戦`, and `今日の結果確認` appear before the lower-priority tournament, settings, qualification, and scenario content.
-- [ ] When no match remains today, `今日これから見る試合はありません。` and `次の注目試合` are visible.
-- [ ] When there is no match today, `今日は試合がありません。` and a `日程を見る` route are visible.
-- [ ] `次の注目試合` shows no more than three matches.
+- [ ] `次に見るべき試合` is the first Home section and shows no more than three matches.
+- [ ] The primary section includes unstarted matches within the next 36 hours, including tomorrow-morning matches visible from the previous evening.
+- [ ] Primary recommendation cards show `起きて見るべき` / `結果だけ必ず確認` / `ハイライトで十分` / `寝ていい`, a short reason, impact tags, and a route to Match Detail / calendar addition.
+- [ ] `次に見るべき試合` never shows a finished, already-started, or exact-kickoff-time match.
+- [ ] `推し国の状況` combines Japan/current favorite position, their next matches, Standings, provisional Tournament, and Settings routes.
+- [ ] When a main supported team is not configured, `推し国の状況` gives a stronger setup prompt; when configured, the Settings route stays compact.
+- [ ] `今朝 / 今日の結果確認` shows only important or supported-team results from the last 24 hours and does not become a full finished-match list.
+- [ ] Home contains no more than three large blocks: viewing decision, supported-team status, and recent results.
 - [ ] When every match is finished, Home shows `大会日程は終了しました` and routes to Schedule, Standings, and Tournament.
-- [ ] A supported-team settings button is visible and opens Settings.
 - [ ] Full group standings and the full 3rd-place line are not visible.
+- [ ] Major UI labels use `暫定トーナメント表` and `推し国の想定対戦ルート`, not ambiguous `山` wording.
 - [ ] No `データエラー` is visible anywhere on the screen.
 
 ## Schedule Screen
