@@ -41,6 +41,16 @@ describe('getHomeMatchSections', () => {
     expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['upcoming']);
   });
 
+  it('excludes a match at the exact kickoff time from upcoming watch matches', () => {
+    const kickoffNow = new Date('2026-06-12T09:00:00Z');
+    const sections = getHomeMatchSections([
+      match('kickoff-now'),
+      match('still-upcoming', { kickoffTimeJST: '18:01' }),
+    ], preferences, kickoffNow);
+
+    expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['still-upcoming']);
+  });
+
   it('excludes a status-finished match from upcoming watch matches without changing the match schema', () => {
     const statusFinishedMatch = { ...match('status-finished'), status: 'finished' };
     const sections = getHomeMatchSections([statusFinishedMatch], preferences, now);
@@ -57,6 +67,28 @@ describe('getHomeMatchSections', () => {
     ], preferences, now);
 
     expect(sections.todayFinishedImportantMatches.map((item) => item.id)).toEqual(['important', 'tracked']);
+  });
+
+  it('prioritizes upcoming watch matches by importance and returns at most three', () => {
+    const sections = getHomeMatchSections([
+      match('low', { importanceScore: 30, importanceLabel: 'C' }),
+      match('highest', { importanceScore: 100, importanceLabel: 'S' }),
+      match('middle', { importanceScore: 50, importanceLabel: 'B' }),
+      match('high', { importanceScore: 80, importanceLabel: 'S' }),
+    ], preferences, now);
+
+    expect(sections.upcomingWatchMatches.map((item) => item.id)).toEqual(['highest', 'high', 'middle']);
+  });
+
+  it('returns at most three important or tracked finished matches for today results', () => {
+    const sections = getHomeMatchSections([
+      match('result-1', { played: true, importanceScore: 100, importanceLabel: 'S' }),
+      match('result-2', { played: true, importanceScore: 90, importanceLabel: 'S' }),
+      match('result-3', { played: true, importanceScore: 80, importanceLabel: 'S' }),
+      match('result-4', { played: true, importanceScore: 70, importanceLabel: 'A' }),
+    ], preferences, now);
+
+    expect(sections.todayFinishedImportantMatches.map((item) => item.id)).toEqual(['result-1', 'result-2', 'result-3']);
   });
 
   it('returns at most three next featured matches when today has no upcoming match', () => {

@@ -62,6 +62,8 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 ## Home Screen
 
 - [ ] The page renders without a browser or app error.
+- [ ] `これから見るべき試合` or `次の注目試合` is the first Home section and shows no more than three matches.
+- [ ] Primary recommendation cards show the S/A/B/C importance code, a short viewing reason, and a route to Match Detail / calendar addition.
 - [ ] `これから見るべき試合` never shows a finished or already-started match.
 - [ ] Qualification status cards are visible.
 - [ ] The `日本代表の次戦` section is visible and shows one match.
@@ -69,6 +71,7 @@ https://semflactal-high-roas.github.io/wc-watch-os/
 - [ ] The `日本代表 突破シナリオ` section is visible.
 - [ ] `これから見るべき試合` shows only today's unplayed matches whose kickoff is still ahead.
 - [ ] `今日の結果確認` shows only important or supported-team results and does not become a full finished-match list.
+- [ ] `日本代表の次戦`, `推し国の次戦`, and `今日の結果確認` appear before the lower-priority tournament, settings, qualification, and scenario content.
 - [ ] When no match remains today, `今日これから見る試合はありません。` and `次の注目試合` are visible.
 - [ ] When there is no match today, `今日は試合がありません。` and a `日程を見る` route are visible.
 - [ ] `次の注目試合` shows no more than three matches.

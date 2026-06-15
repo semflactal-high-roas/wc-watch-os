@@ -319,19 +319,10 @@ function HomeScreen({
 
   return (
     <div className="space-y-5">
-      <section className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg">
-        <div>
-          <p className="text-xs font-semibold text-cyan-300">推し国設定</p>
-          <p className="mt-1 text-sm text-slate-300">メインで応援する国: {favoriteName}</p>
-        </div>
-        <button type="button" onClick={onSettingsOpen} className="shrink-0 rounded-xl border border-cyan-300/50 px-3 py-2 text-sm font-bold text-cyan-200 transition hover:bg-cyan-300/10">
-          設定する
-        </button>
-      </section>
-
-      <HomeMatchRecommendationSections
+      <HomePrimaryMatchSection
         sections={homeMatchSections}
         teams={data.teams}
+        preferences={preferences}
         favoriteName={favoriteName}
         onMatchSelect={onMatchSelect}
         onScheduleOpen={onScheduleOpen}
@@ -339,10 +330,20 @@ function HomeScreen({
         onTournamentOpen={onTournamentOpen}
       />
 
-      <QualificationStatusSection summaries={qualificationSummaries} teams={data.teams} />
-      <NextMatchSection title="日本代表の次戦" match={japanMatches[0] ?? null} emptyMessage="日本代表の次戦データがまだ登録されていません" teams={data.teams} onMatchSelect={onMatchSelect} />
-      <NextMatchSection title="推し国の次戦" match={favoriteNextMatch} emptyMessage={preferences.mainFavoriteTeamId ? 'メイン推し国の次戦データがまだ登録されていません' : '推し国設定からメインで応援する国を選ぶと表示します'} teams={data.teams} onMatchSelect={onMatchSelect} />
-      {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
+      {!homeMatchSections.tournamentFinished && (
+        <>
+          <NextMatchSection title="日本代表の次戦" match={japanMatches[0] ?? null} emptyMessage="日本代表の次戦データがまだ登録されていません" teams={data.teams} onMatchSelect={onMatchSelect} />
+          <NextMatchSection title="推し国の次戦" match={favoriteNextMatch} emptyMessage={preferences.mainFavoriteTeamId ? 'メイン推し国の次戦データがまだ登録されていません' : '推し国設定からメインで応援する国を選ぶと表示します'} teams={data.teams} onMatchSelect={onMatchSelect} />
+        </>
+      )}
+
+      <TodayFinishedResultsSection
+        matches={homeMatchSections.todayFinishedImportantMatches}
+        teams={data.teams}
+        onMatchSelect={onMatchSelect}
+        onScheduleOpen={onScheduleOpen}
+        onStandingsOpen={onStandingsOpen}
+      />
 
       <section className="space-y-3 rounded-2xl border border-violet-300/30 bg-slate-900 p-4 shadow-lg">
         <div>
@@ -354,13 +355,19 @@ function HomeScreen({
           トーナメント表を見る
         </button>
       </section>
+
+      <FavoriteSettingsSection favoriteName={favoriteName} isUnset={!preferences.mainFavoriteTeamId} onSettingsOpen={onSettingsOpen} />
+
+      <QualificationStatusSection summaries={qualificationSummaries} teams={data.teams} />
+      {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
     </div>
   );
 }
 
-function HomeMatchRecommendationSections({
+function HomePrimaryMatchSection({
   sections,
   teams,
+  preferences,
   favoriteName,
   onMatchSelect,
   onScheduleOpen,
@@ -369,6 +376,7 @@ function HomeMatchRecommendationSections({
 }: {
   sections: HomeMatchSections;
   teams: Team[];
+  preferences: UserPreferences;
   favoriteName: string;
   onMatchSelect: (matchId: string) => void;
   onScheduleOpen: () => void;
@@ -398,24 +406,17 @@ function HomeMatchRecommendationSections({
           <p className="rounded-xl bg-slate-800 px-3 py-2 text-sm text-slate-300">メインで応援する国: {favoriteName}</p>
           <div className="space-y-3">
             {sections.upcomingWatchMatches.map((match) => (
-              <MatchCard key={match.id} match={match} teams={teams} showRank onSelect={() => onMatchSelect(match.id)} />
+              <MatchCard
+                key={match.id}
+                match={match}
+                teams={teams}
+                showRank
+                showImportanceCode
+                showDetailHint
+                recommendationReason={getRecommendationReason(match, teams, preferences)}
+                onSelect={() => onMatchSelect(match.id)}
+              />
             ))}
-          </div>
-        </section>
-      )}
-
-      {sections.todayFinishedImportantMatches.length > 0 && (
-        <section className="space-y-3 rounded-2xl border border-emerald-300/20 bg-slate-900 p-4 shadow-lg">
-          <h2 className="text-lg font-semibold">今日の結果確認</h2>
-          <p className="text-sm leading-6 text-slate-300">今日終了した試合のうち、重要度が高い試合や応援する国に関係する結果です。</p>
-          <div className="space-y-3">
-            {sections.todayFinishedImportantMatches.map((match) => (
-              <MatchCard key={match.id} match={match} teams={teams} compact onSelect={() => onMatchSelect(match.id)} />
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <HomeNavigationButton label="日程を見る" onClick={onScheduleOpen} />
-            <HomeNavigationButton label="順位を見る" onClick={onStandingsOpen} />
           </div>
         </section>
       )}
@@ -429,7 +430,15 @@ function HomeMatchRecommendationSections({
           {sections.nextFeaturedMatches.length > 0 ? (
             <div className="space-y-3">
               {sections.nextFeaturedMatches.map((match) => (
-                <MatchCard key={match.id} match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  teams={teams}
+                  showImportanceCode
+                  showDetailHint
+                  recommendationReason={getRecommendationReason(match, teams, preferences)}
+                  onSelect={() => onMatchSelect(match.id)}
+                />
               ))}
             </div>
           ) : (
@@ -439,6 +448,53 @@ function HomeMatchRecommendationSections({
         </section>
       )}
     </>
+  );
+}
+
+function TodayFinishedResultsSection({
+  matches,
+  teams,
+  onMatchSelect,
+  onScheduleOpen,
+  onStandingsOpen,
+}: {
+  matches: MatchWithImportance[];
+  teams: Team[];
+  onMatchSelect: (matchId: string) => void;
+  onScheduleOpen: () => void;
+  onStandingsOpen: () => void;
+}) {
+  if (matches.length === 0) return null;
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-emerald-300/20 bg-slate-900 p-4 shadow-lg">
+      <h2 className="text-lg font-semibold">今日の結果確認</h2>
+      <p className="text-sm leading-6 text-slate-300">今日終了した試合のうち、重要度が高い試合や応援する国に関係する結果です。</p>
+      <div className="space-y-3">
+        {matches.map((match) => (
+          <MatchCard key={match.id} match={match} teams={teams} compact onSelect={() => onMatchSelect(match.id)} />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <HomeNavigationButton label="日程を見る" onClick={onScheduleOpen} />
+        <HomeNavigationButton label="順位を見る" onClick={onStandingsOpen} />
+      </div>
+    </section>
+  );
+}
+
+function FavoriteSettingsSection({ favoriteName, isUnset, onSettingsOpen }: { favoriteName: string; isUnset: boolean; onSettingsOpen: () => void }) {
+  return (
+    <section className={`flex items-center justify-between gap-3 rounded-2xl border bg-slate-900 p-4 shadow-lg ${isUnset ? 'border-amber-300/50' : 'border-slate-800'}`}>
+      <div>
+        <p className={`text-xs font-semibold ${isUnset ? 'text-amber-200' : 'text-cyan-300'}`}>推し国設定</p>
+        <p className="mt-1 text-sm text-slate-300">メインで応援する国: {favoriteName}</p>
+        {isUnset && <p className="mt-1 text-xs leading-5 text-amber-100">設定すると、見るべき試合の優先順位に反映します。</p>}
+      </div>
+      <button type="button" onClick={onSettingsOpen} className="shrink-0 rounded-xl border border-cyan-300/50 px-3 py-2 text-sm font-bold text-cyan-200 transition hover:bg-cyan-300/10">
+        設定する
+      </button>
+    </section>
   );
 }
 
@@ -485,7 +541,7 @@ function NextMatchSection({ title, match, emptyMessage, teams, onMatchSelect }: 
         <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm text-slate-300">{emptyMessage}</p>
       ) : (
         <div className="space-y-2">
-          <MatchCard match={match} teams={teams} onSelect={() => onMatchSelect(match.id)} />
+          <MatchCard match={match} teams={teams} compact showDetailHint onSelect={() => onMatchSelect(match.id)} />
           {matchIncludesTeam(match, japanTeamId) && <JapanMatchImpactSummary match={match} teams={teams} />}
         </div>
       )}
@@ -697,7 +753,27 @@ function SettingsScreen({ data, preferences, onPreferencesChange, onBack }: { da
   );
 }
 
-function MatchCard({ match, teams, compact = false, showRank = false, scheduleDisplayState, onSelect }: { match: Match | MatchWithImportance; teams: Team[]; compact?: boolean; showRank?: boolean; scheduleDisplayState?: ScheduleDisplayState; onSelect?: () => void }) {
+function MatchCard({
+  match,
+  teams,
+  compact = false,
+  showRank = false,
+  showImportanceCode = false,
+  showDetailHint = false,
+  recommendationReason,
+  scheduleDisplayState,
+  onSelect,
+}: {
+  match: Match | MatchWithImportance;
+  teams: Team[];
+  compact?: boolean;
+  showRank?: boolean;
+  showImportanceCode?: boolean;
+  showDetailHint?: boolean;
+  recommendationReason?: string;
+  scheduleDisplayState?: ScheduleDisplayState;
+  onSelect?: () => void;
+}) {
   const importance = 'importanceScore' in match ? match : null;
   const scheduleStatus = scheduleDisplayState === 'finished'
     ? { score: scoreLabel(match), label: getScheduleDisplayStateLabel(scheduleDisplayState) }
@@ -713,7 +789,7 @@ function MatchCard({ match, teams, compact = false, showRank = false, scheduleDi
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             {showRank && importance && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">#{importance.importanceRank}</span>}
-            {importance && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-cyan-300">重要度 {importanceLabelText(importance.importanceLabel)}</span>}
+            {importance && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-cyan-300">重要度 {showImportanceCode ? `${importance.importanceLabel} / ` : ''}{importanceLabelText(importance.importanceLabel)}</span>}
             {importance && !compact && <span className="text-xs font-semibold text-slate-400">{importance.importanceScore}点</span>}
           </div>
           <p className="text-xs font-semibold text-slate-400">{formatMatchDateTime(match)}</p>
@@ -722,6 +798,8 @@ function MatchCard({ match, teams, compact = false, showRank = false, scheduleDi
           <p className="truncate text-sm font-semibold">{teamName(teams, match.homeTeamId)}</p>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.awayTeamId)}</p>
           {importance && !compact && <div className="mt-3 flex flex-wrap gap-2">{importance.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}</div>}
+          {recommendationReason && <p className="mt-3 text-xs leading-5 text-slate-300">{recommendationReason}</p>}
+          {showDetailHint && onSelect && <p className="mt-3 text-xs font-semibold text-cyan-200">試合詳細・カレンダー追加を見る</p>}
         </div>
         <div className="shrink-0 rounded-lg bg-slate-950 px-3 py-2 text-center">
           <p className="text-sm font-bold text-cyan-300">{scheduleStatus?.score ?? scoreLabel(match)}</p>
