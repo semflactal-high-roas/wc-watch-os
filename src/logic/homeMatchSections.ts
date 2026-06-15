@@ -12,6 +12,7 @@ export type HomeMatchSections = {
 };
 
 const japanTeamId = 'JPN';
+const homeMatchLimit = 3;
 const getKickoffTime = (match: Pick<Match, 'date' | 'kickoffTimeJST'>): number => {
   return new Date(`${match.date}T${match.kickoffTimeJST}:00+09:00`).getTime();
 };
@@ -36,6 +37,10 @@ const isHighImportance = (match: MatchWithImportance): boolean => {
   return match.importanceLabel === 'S' || match.importanceLabel === 'A';
 };
 
+const sortByWatchPriority = (a: MatchWithImportance, b: MatchWithImportance): number => {
+  return b.importanceScore - a.importanceScore || getKickoffTime(a) - getKickoffTime(b) || a.id.localeCompare(b.id);
+};
+
 export const getHomeMatchSections = (
   rankedMatches: MatchWithImportance[],
   preferences: UserPreferenceInput,
@@ -45,16 +50,20 @@ export const getHomeMatchSections = (
   const trackedTeamIds = getTrackedTeamIds(preferences);
   const todayMatches = rankedMatches.filter((match) => match.date === todayKey);
 
-  const upcomingWatchMatches = todayMatches.filter((match) => isUpcomingMatch(match, now));
-  const todayFinishedImportantMatches = todayMatches.filter(
-    (match) => isFinishedMatchForDisplay(match) && (isHighImportance(match) || isTrackedTeamMatch(match, trackedTeamIds)),
-  );
+  const upcomingWatchMatches = todayMatches
+    .filter((match) => isUpcomingMatch(match, now))
+    .sort(sortByWatchPriority)
+    .slice(0, homeMatchLimit);
+  const todayFinishedImportantMatches = todayMatches
+    .filter((match) => isFinishedMatchForDisplay(match) && (isHighImportance(match) || isTrackedTeamMatch(match, trackedTeamIds)))
+    .sort(sortByWatchPriority)
+    .slice(0, homeMatchLimit);
   const nextFeaturedMatches = upcomingWatchMatches.length > 0
-      ? []
-      : rankedMatches
+    ? []
+    : rankedMatches
       .filter((match) => isUpcomingMatch(match, now) && (isHighImportance(match) || isTrackedTeamMatch(match, trackedTeamIds)))
-      .sort((a, b) => getKickoffTime(a) - getKickoffTime(b) || b.importanceScore - a.importanceScore || a.id.localeCompare(b.id))
-      .slice(0, 3);
+      .sort(sortByWatchPriority)
+      .slice(0, homeMatchLimit);
 
   return {
     upcomingWatchMatches,

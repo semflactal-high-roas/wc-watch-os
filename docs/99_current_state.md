@@ -32,7 +32,7 @@
 | 時間帯ラベル | 実装済み | `src/logic/timeOfDayLabel.ts` と試合カード・詳細での利用を確認 |
 | 日本代表＋推し国設定 | 実装済み | 日本代表は固定追跡対象。`src/App.tsx` の設定画面でメイン・追加の応援国を設定可能 |
 | localStorage保存 | 実装済み | `src/App.tsx` の `wc-watch-os:userPreferences` 読み書きを確認 |
-| Home試合レコメンド | 実装済み | Homeを「これから見るべき試合 / 今日の結果確認 / 次の注目試合」に整理。`src/logic/homeMatchSections.ts` が日本時間の現在時刻、終了状態、重要度、応援する国をもとに表示対象を抽出 |
+| Home試合レコメンド | 実装済み | Home上部を「これから見るべき試合 / 次の注目試合」の観戦判断に集中し、既存の重要度と応援国との関係で最大3件を抽出。日本・推し国の次戦、今日の重要結果、各専用タブへの導線を続けて表示する |
 | 重要度S/A/B/C | 一部実装 | `src/logic/matchImportance.ts` でS/A/B/Cを決定論的に算出。主要UIでは `高 / 中 / 低` 表示へ変換している箇所あり |
 | グループ順位表 | 実装済み | `src/logic/standings.ts` と `src/App.tsx` の順位表示を確認 |
 | 3位通過ライン | 実装済み | `src/logic/thirdPlaceRanking.ts`、`thirdPlaceLine.ts` と表示を確認。詳細タイブレークは未反映 |
