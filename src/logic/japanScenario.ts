@@ -1,4 +1,5 @@
 import type { AppData, Match, StandingRow, Team } from '../types';
+import { isFinishedMatchForDisplay } from './matchDisplayStatus';
 
 type GroupStanding = {
   groupId: string;
@@ -38,7 +39,7 @@ const teamName = (teams: Team[], teamId: string): string => {
 };
 
 export const getNextJapanMatch = (matches: Match[]): Match | null => {
-  return sortByKickoff(matches.filter((match) => !match.played && matchIncludesTeam(match, japanTeamId)))[0] ?? null;
+  return sortByKickoff(matches.filter((match) => !isFinishedMatchForDisplay(match) && matchIncludesTeam(match, japanTeamId)))[0] ?? null;
 };
 
 export const getJapanGroupRivals = (teams: Team[]): Team[] => {
@@ -88,7 +89,7 @@ export const getJapanScenarioSummary = (
   const rankIndex = groupStanding?.rows.findIndex((row) => row.teamId === japanTeamId) ?? -1;
   const japanStanding = rankIndex >= 0 ? groupStanding?.rows[rankIndex] ?? null : null;
   const groupMatches = matches.filter((match) => match.groupId === groupId || (groupTeamIds.includes(match.homeTeamId) && groupTeamIds.includes(match.awayTeamId)));
-  const remainingMatches = groupMatches.filter((match) => !match.played && matchIncludesTeam(match, japanTeamId)).length;
+  const remainingMatches = groupMatches.filter((match) => !isFinishedMatchForDisplay(match) && matchIncludesTeam(match, japanTeamId)).length;
   const nextMatch = getNextJapanMatch(groupMatches);
   const nextOpponentId = nextMatch
     ? nextMatch.homeTeamId === japanTeamId
@@ -108,7 +109,7 @@ export const getJapanScenarioSummary = (
     ? [`次戦は ${nextOpponentName} 戦です。勝てば勝点3、引き分けなら勝点1、敗戦なら他会場依存が強まります。`]
     : [];
   const watchGroupMatches = sortByKickoff(
-    groupMatches.filter((match) => !match.played && !matchIncludesTeam(match, japanTeamId)),
+    groupMatches.filter((match) => !isFinishedMatchForDisplay(match) && !matchIncludesTeam(match, japanTeamId)),
   );
 
   return {

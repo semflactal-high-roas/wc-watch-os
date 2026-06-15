@@ -1,5 +1,6 @@
 import { isPastMatch, isTodayMatch, isTomorrowMatch } from './dateFilters';
 import type { Group, Match, MatchStage, Team } from '../types';
+import { isFinishedMatchForDisplay } from './matchDisplayStatus';
 
 export type UserPreferenceInput = {
   mainFavoriteTeamId: string;
@@ -89,7 +90,7 @@ const scoreMatch = (
     reasonTags.push('一緒に追いかける国の試合');
   }
 
-  if (match.played) {
+  if (isFinishedMatchForDisplay(match)) {
     importanceScore -= 20;
     reasonTags.push('終了');
   } else {

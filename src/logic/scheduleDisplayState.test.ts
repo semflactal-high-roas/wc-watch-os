@@ -36,6 +36,12 @@ describe('schedule display state', () => {
     expect(classifyScheduleMatch(match('finished', { played: true, kickoffTimeJST: '18:00' }), now)).toBe('finished');
   });
 
+  it('classifies status finished as finished without changing the match schema', () => {
+    const statusFinishedMatch = { ...match('status-finished', { kickoffTimeJST: '18:00' }), status: 'finished' };
+
+    expect(classifyScheduleMatch(statusFinishedMatch, now)).toBe('finished');
+  });
+
   it('groups every match without leaving an already-started match in upcoming', () => {
     const matches = [
       match('upcoming'),

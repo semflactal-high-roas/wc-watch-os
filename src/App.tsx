@@ -6,6 +6,7 @@ import { getHomeMatchSections, isUpcomingMatch, type HomeMatchSections } from '.
 import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
 import { getJapanMatchImpactItems } from './logic/japanMatchImpact';
 import { getJapanScenarioSummary, type JapanScenarioSummary } from './logic/japanScenario';
+import { getFinishedMatchResultMessage, isFinishedMatchForDisplay } from './logic/matchDisplayStatus';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { getRecommendationReason } from './logic/recommendationCopy';
@@ -83,8 +84,11 @@ const formatTeamName = (teams: Team[], teamId: string): string => {
 const teamName = formatTeamName;
 const matchIncludesTeam = (match: Match, teamId: string): boolean => match.homeTeamId === teamId || match.awayTeamId === teamId;
 const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.group ?? '';
-const scoreLabel = (match: Match): string => (!match.played || match.homeScore === null || match.awayScore === null ? 'これから' : `${match.homeScore} - ${match.awayScore}`);
-const matchStatusLabel = (match: Match): string => (match.played ? '終了' : 'これから');
+const scoreLabel = (match: Match): string => {
+  if (!isFinishedMatchForDisplay(match)) return 'これから';
+  return match.homeScore === null || match.awayScore === null ? '結果確認' : `${match.homeScore} - ${match.awayScore}`;
+};
+const matchStatusLabel = (match: Match): string => (isFinishedMatchForDisplay(match) ? '終了' : 'これから');
 const formatRecord = (row: StandingRow): string => `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
 
 const formatMatchStage = (match: Match): string => {
@@ -324,10 +328,6 @@ function HomeScreen({
           設定する
         </button>
       </section>
-      <QualificationStatusSection summaries={qualificationSummaries} teams={data.teams} />
-      <NextMatchSection title="日本代表の次戦" match={japanMatches[0] ?? null} emptyMessage="日本代表の次戦データがまだ登録されていません" teams={data.teams} onMatchSelect={onMatchSelect} />
-      <NextMatchSection title="推し国の次戦" match={favoriteNextMatch} emptyMessage={preferences.mainFavoriteTeamId ? 'メイン推し国の次戦データがまだ登録されていません' : '推し国設定からメインで応援する国を選ぶと表示します'} teams={data.teams} onMatchSelect={onMatchSelect} />
-      {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
 
       <HomeMatchRecommendationSections
         sections={homeMatchSections}
@@ -338,6 +338,11 @@ function HomeScreen({
         onStandingsOpen={onStandingsOpen}
         onTournamentOpen={onTournamentOpen}
       />
+
+      <QualificationStatusSection summaries={qualificationSummaries} teams={data.teams} />
+      <NextMatchSection title="日本代表の次戦" match={japanMatches[0] ?? null} emptyMessage="日本代表の次戦データがまだ登録されていません" teams={data.teams} onMatchSelect={onMatchSelect} />
+      <NextMatchSection title="推し国の次戦" match={favoriteNextMatch} emptyMessage={preferences.mainFavoriteTeamId ? 'メイン推し国の次戦データがまだ登録されていません' : '推し国設定からメインで応援する国を選ぶと表示します'} teams={data.teams} onMatchSelect={onMatchSelect} />
+      {japanScenario && <JapanScenarioSection scenario={japanScenario} teams={data.teams} />}
 
       <section className="space-y-3 rounded-2xl border border-violet-300/30 bg-slate-900 p-4 shadow-lg">
         <div>
@@ -408,7 +413,10 @@ function HomeMatchRecommendationSections({
               <MatchCard key={match.id} match={match} teams={teams} compact onSelect={() => onMatchSelect(match.id)} />
             ))}
           </div>
-          <HomeNavigationButton label="順位を見る" onClick={onStandingsOpen} />
+          <div className="grid grid-cols-2 gap-2">
+            <HomeNavigationButton label="日程を見る" onClick={onScheduleOpen} />
+            <HomeNavigationButton label="順位を見る" onClick={onStandingsOpen} />
+          </div>
         </section>
       )}
 
@@ -794,14 +802,18 @@ const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences
   if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) points.push('応援中の国が関係する試合です。');
   if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('応援する国と同組のため、順位に影響する可能性があります。');
   if (match.stage === 'group') points.push('3位通過ラインに関わる可能性があります。');
-  if (match.played) points.push('終了した試合です。現在の順位表・3位通過ラインに結果が反映されています。');
+  const finishedResultMessage = getFinishedMatchResultMessage(match);
+  if (finishedResultMessage) points.push(finishedResultMessage);
   if (points.length === 0) points.push('今後のラウンドや他会場結果を見るうえで参考になる試合です。');
 
   return [...new Set(points)];
 };
 
 const getImpactItems = (match: Match): { label: string; text: string }[] => {
-  if (match.played) return [{ label: '終了済み', text: 'この試合は終了済みです。現在の順位表・3位通過ラインに結果が反映されています。' }];
+  const finishedResultMessage = getFinishedMatchResultMessage(match);
+  if (finishedResultMessage) {
+    return [{ label: match.played ? '終了済み' : '終了済み / 結果待ち', text: finishedResultMessage }];
+  }
 
   return [
     { label: '勝利時', text: '勝点3を積み上げ、突破圏に近づきます。' },

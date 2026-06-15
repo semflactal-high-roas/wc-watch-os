@@ -1,4 +1,5 @@
 import type { Match } from '../types';
+import { isFinishedMatchForDisplay } from './matchDisplayStatus';
 
 const jstTimeZone = 'Asia/Tokyo';
 
@@ -39,7 +40,7 @@ export const filterTodayMatches = <T extends Match>(matches: T[], today: Date): 
 export const filterUpcomingMatches = <T extends Match>(matches: T[], today: Date): T[] => {
   const todayKey = toJstDateKey(today);
   return matches
-    .filter((match) => !match.played && match.date >= todayKey)
+    .filter((match) => !isFinishedMatchForDisplay(match) && match.date >= todayKey)
     .sort((a, b) => a.date.localeCompare(b.date) || a.kickoffTimeJST.localeCompare(b.kickoffTimeJST));
 };
 

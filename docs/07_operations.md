@@ -129,6 +129,39 @@ Rules:
 - If `played` is `false`, scores may stay `null`.
 - Update only the score and `played` fields when entering a result unless the schedule itself changed.
 
+## Result Update Pull Request Review Checklist
+
+1. Official confirmation
+   - Prefer FIFA official sources.
+   - Use Reuters / AP / BBC / ESPN / official broadcasters / national associations only as secondary confirmation.
+   - Do not use general blogs, summary sites, social media alone, or Wikipedia.
+2. Update target confirmation
+   - Confirm the target match ID in `public/data/matches.json`.
+   - Confirm `homeTeamId` / `awayTeamId` / `groupId` / `stage` match the request.
+3. Change scope confirmation
+   - Change only the target matches in `public/data/matches.json` for result-only updates.
+   - Do not change `teams.json` / `groups.json` / `config.json`.
+   - Do not change `src` / UI / logic.
+4. Score confirmation
+   - Confirm `homeScore`.
+   - Confirm `awayScore`.
+   - Confirm `played: true`.
+5. Validation
+   - Run `npm run validate:data`.
+   - Run `npm test`.
+   - Run `npm run build`.
+6. Screen confirmation
+   - Confirm the score in Schedule.
+   - Confirm the finished match no longer appears under Home's `これから見るべき試合`.
+   - Confirm points and goal difference are reflected in Standings.
+   - Confirm the provisional tournament bracket beta reflects provisional standings when applicable.
+7. Pull request body
+   - List the changed match IDs.
+   - List the scores.
+   - Record the confirmation sources.
+   - Record the `validate:data` / `test` / `build` results.
+   - State that no file other than `public/data/matches.json` was changed.
+
 ## Validation
 
 The app validates `teams`, `groups`, and `matches` after loading them. If invalid data is found, the app shows a `データエラー` message instead of rendering normal screens.
@@ -149,6 +182,8 @@ The validation currently checks:
 Run these checks locally:
 
 ```bash
+npm run validate:data
+npm test
 npm run build
 ```
 

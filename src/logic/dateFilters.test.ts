@@ -35,4 +35,10 @@ describe('JST date filters', () => {
 
     expect(filterUpcomingMatches(matches, jstAfterMidnight).map((item) => item.id)).toEqual(['today', 'tomorrow']);
   });
+
+  it('excludes status finished from upcoming matches', () => {
+    const statusFinishedMatch = { ...match('status-finished', '2026-06-13'), status: 'finished' };
+
+    expect(filterUpcomingMatches([statusFinishedMatch], jstAfterMidnight)).toEqual([]);
+  });
 });
