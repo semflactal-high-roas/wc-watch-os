@@ -448,7 +448,7 @@ function HomePrimaryMatchSection({
 
 const getHomeDecisionTags = (match: MatchWithImportance): string[] => {
   if (match.stage !== 'group') return match.reasonTags;
-  return [...new Set([...match.reasonTags, '3位通過ラインに影響', '暫定トーナメント表の組み合わせに影響'])];
+  return [...new Set([...match.reasonTags, '3位通過ラインに影響', 'トーナメント表の組み合わせに影響'])];
 };
 
 function SupportedTeamStatusSection({
@@ -518,7 +518,7 @@ function SupportedTeamStatusSection({
         <HomeNavigationButton label="順位を見る" onClick={onStandingsOpen} />
         <HomeNavigationButton label="推し国を変更" onClick={onSettingsOpen} />
         <button type="button" onClick={onTournamentOpen} className="col-span-2 w-full rounded-xl border border-violet-300/50 px-3 py-2 text-sm font-bold text-violet-200 transition hover:bg-violet-300/10">
-          暫定トーナメント表を見る
+          決勝トーナメント表を見る
         </button>
       </div>
     </section>
@@ -594,14 +594,14 @@ function RecentFinishedResultsSection({
           <div key={match.id} className="space-y-2">
             <MatchCard match={match} teams={teams} compact onSelect={() => onMatchSelect(match.id)} />
             <p className="rounded-lg bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-300">
-              {getFinishedMatchResultMessage(match) ?? '結果確認後、順位と暫定トーナメント表の組み合わせを確認してください。'}
+              {getFinishedMatchResultMessage(match) ?? '結果確認後、順位とトーナメント表の組み合わせを確認してください。'}
             </p>
           </div>
         ))}
       </div>
       <div className="grid grid-cols-2 gap-2">
         <HomeNavigationButton label="順位を見る" onClick={onStandingsOpen} />
-        <HomeNavigationButton label="暫定トーナメント表を見る" onClick={onTournamentOpen} />
+        <HomeNavigationButton label="決勝トーナメント表を見る" onClick={onTournamentOpen} />
       </div>
     </section>
   );
@@ -662,7 +662,7 @@ function ScheduleScreen({ data, preferences, rankedMatches, today, onMatchSelect
       <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">試合一覧</h2>
-          <p className="text-sm leading-6 text-slate-300">見たい切り口を選んで、全72試合から必要な試合だけを絞り込めます。</p>
+          <p className="text-sm leading-6 text-slate-300">見たい切り口を選んで、全{data.matches.length}試合から必要な試合だけを絞り込めます。</p>
           <p className="text-xs leading-5 text-cyan-200">日付と時刻はすべて日本時間で表示しています。</p>
         </div>
         <div className="flex flex-wrap gap-2">
