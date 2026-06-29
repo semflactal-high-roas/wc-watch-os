@@ -4,6 +4,7 @@ import { loadAppData } from './data/loader';
 import { formatJstDateWithWeekday, formatMatchDateTime } from './logic/dateTimeDisplay';
 import { getHomeMatchSections, isUpcomingMatch, type HomeMatchSections } from './logic/homeMatchSections';
 import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
+import { getKnockoutParticipantTeamIds, getSupportedTeamStatusDisplay } from './logic/knockoutParticipation';
 import { getFinishedMatchResultMessage, isFinishedMatchForDisplay } from './logic/matchDisplayStatus';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { getQualificationSummary } from './logic/qualificationStatus';
@@ -84,7 +85,6 @@ const teamName = formatTeamName;
 const matchIncludesTeam = (match: Match, teamId: string): boolean => match.homeTeamId === teamId || match.awayTeamId === teamId;
 const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.group ?? '';
 const isKnockoutStage = (match: Match): boolean => match.stage !== 'group';
-const hasKnockoutStageMatches = (matches: Match[]): boolean => matches.some(isKnockoutStage);
 const scoreLabel = (match: Match): string => {
   if (!isFinishedMatchForDisplay(match)) return 'これから';
   return match.homeScore === null || match.awayScore === null ? '結果確認' : `${match.homeScore} - ${match.awayScore}`;
@@ -314,6 +314,8 @@ function HomeScreen({
   onTournamentOpen,
   onMatchSelect,
 }: HomeScreenProps) {
+  const knockoutParticipantTeamIds = useMemo(() => getKnockoutParticipantTeamIds(data.matches), [data.matches]);
+
   return (
     <div className="space-y-5">
       <HomePrimaryMatchSection
@@ -333,7 +335,7 @@ function HomeScreen({
         qualificationSummaries={qualificationSummaries}
         japanNextMatch={japanMatches[0] ?? null}
         favoriteNextMatch={favoriteNextMatch}
-        knockoutStarted={hasKnockoutStageMatches(data.matches)}
+        knockoutParticipantTeamIds={knockoutParticipantTeamIds}
         now={now}
         onSettingsOpen={onSettingsOpen}
         onStandingsOpen={onStandingsOpen}
@@ -469,7 +471,7 @@ function SupportedTeamStatusSection({
   qualificationSummaries,
   japanNextMatch,
   favoriteNextMatch,
-  knockoutStarted,
+  knockoutParticipantTeamIds,
   now,
   onSettingsOpen,
   onStandingsOpen,
@@ -481,7 +483,7 @@ function SupportedTeamStatusSection({
   qualificationSummaries: QualificationSummary[];
   japanNextMatch: MatchWithImportance | null;
   favoriteNextMatch: MatchWithImportance | null;
-  knockoutStarted: boolean;
+  knockoutParticipantTeamIds: ReadonlySet<string>;
   now: Date;
   onSettingsOpen: () => void;
   onStandingsOpen: () => void;
@@ -506,7 +508,7 @@ function SupportedTeamStatusSection({
           summary={japanSummary}
           nextMatch={japanNextMatch}
           teams={teams}
-          knockoutStarted={knockoutStarted}
+          knockoutParticipantTeamIds={knockoutParticipantTeamIds}
           now={now}
           onMatchSelect={onMatchSelect}
         />
@@ -517,7 +519,7 @@ function SupportedTeamStatusSection({
             summary={favoriteSummary}
             nextMatch={favoriteNextMatch}
             teams={teams}
-            knockoutStarted={knockoutStarted}
+            knockoutParticipantTeamIds={knockoutParticipantTeamIds}
             now={now}
             onMatchSelect={onMatchSelect}
           />
@@ -547,7 +549,7 @@ function SupportedTeamStatusLine({
   summary,
   nextMatch,
   teams,
-  knockoutStarted,
+  knockoutParticipantTeamIds,
   now,
   onMatchSelect,
 }: {
@@ -556,22 +558,20 @@ function SupportedTeamStatusLine({
   summary: QualificationSummary | null;
   nextMatch: MatchWithImportance | null;
   teams: Team[];
-  knockoutStarted: boolean;
+  knockoutParticipantTeamIds: ReadonlySet<string>;
   now: Date;
   onMatchSelect: (matchId: string) => void;
 }) {
-  const context = summary?.context;
   const opponentId = nextMatch
     ? nextMatch.homeTeamId === teamId
       ? nextMatch.awayTeamId
       : nextMatch.homeTeamId
     : null;
-  const position = context?.groupRank
-    ? `Group ${context.groupId} ${context.groupRank}位`
-    : knockoutStarted
-      ? '決勝トーナメント表で確認'
-      : '現在地は順位タブで確認';
-  const statusLabel = knockoutStarted ? '決勝トーナメント' : summary?.statusLabel;
+  const { position, statusLabel } = getSupportedTeamStatusDisplay({
+    teamId,
+    summary,
+    knockoutParticipantTeamIds,
+  });
 
   return (
     <article className="space-y-2 rounded-xl bg-slate-800 px-3 py-3">

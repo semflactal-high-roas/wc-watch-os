@@ -47,16 +47,16 @@ export const getRecommendationReason = (
   preferences: RecommendationPreferenceInput = { mainFavoriteTeamId: '', selectedTeamIds: [] },
 ): string => {
   if (isKnockoutMatch(match)) {
+    if (match.id === 'R32-04') {
+      return '勝者がR16でCanadaと対戦し、次ラウンドのカードが決まる試合です。';
+    }
+
     if (matchIncludesTeam(match, japanTeamId)) {
       return '日本代表が関係するノックアウト戦です。勝者が次ラウンドへ進む一発勝負です。';
     }
 
     if (isSupportedTeamMatch(match, preferences)) {
       return '応援する国が関係するノックアウト戦です。勝てば次ラウンドへ進み、敗れれば大会終了です。';
-    }
-
-    if (match.id === 'R32-04') {
-      return '勝者がR16でCanadaと対戦し、次ラウンドのカードが決まる試合です。';
     }
 
     if (match.stage === 'round_of_32') {

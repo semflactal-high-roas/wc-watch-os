@@ -46,6 +46,19 @@ describe('getRecommendationReason', () => {
     }
   });
 
+  it('keeps the Canada hint even when Netherlands or Morocco is supported', () => {
+    const reason = getRecommendationReason(
+      match({ id: 'R32-04', homeTeamId: 'NED', awayTeamId: 'MAR' }),
+      teams,
+      { mainFavoriteTeamId: 'NED', selectedTeamIds: ['MAR'] },
+    );
+
+    expect(reason).toBe('勝者がR16でCanadaと対戦し、次ラウンドのカードが決まる試合です。');
+    for (const term of forbiddenGroupPhaseTerms) {
+      expect(reason).not.toContain(term);
+    }
+  });
+
   it('uses archive wording for a group-stage match after the fixed bracket is available', () => {
     const reason = getRecommendationReason(match({
       id: 'G-F-01',
