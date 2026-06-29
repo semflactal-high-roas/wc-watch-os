@@ -58,6 +58,19 @@ const getThirdPlaceRank = (teamId: string, thirdPlaceRanking: StandingRow[]): nu
   return index >= 0 ? index + 1 : null;
 };
 
+const areAllGroupStageMatchesComplete = (groups: Group[], matches: Match[]): boolean => {
+  return groups.every((group) => {
+    const groupMatches = matches.filter(
+      (match) =>
+        match.stage === 'group' &&
+        group.teamIds.includes(match.homeTeamId) &&
+        group.teamIds.includes(match.awayTeamId),
+    );
+
+    return groupMatches.length > 0 && groupMatches.every((match) => match.played);
+  });
+};
+
 const buildSummary = (
   context: TeamGroupContext,
   status: QualificationStatus,
@@ -103,14 +116,19 @@ export const calculateQualificationStatus = (
   const thirdPlaceRank = getThirdPlaceRank(teamId, thirdPlaceRanking);
   const allTeamMatchesComplete = context.remainingMatches === 0;
   const allGroupMatchesComplete = context.groupMatchesRemaining === 0;
+  const allTournamentGroupMatchesComplete = areAllGroupStageMatchesComplete(groups, matches);
 
   if (context.groupRank <= 2) {
     return allGroupMatchesComplete ? 'qualified' : 'safe';
   }
 
   if (context.groupRank === 3) {
+    if (!allTournamentGroupMatchesComplete) {
+      return 'borderline';
+    }
+
     if (thirdPlaceRank !== null && thirdPlaceRank <= 8) {
-      return allGroupMatchesComplete ? 'qualified' : 'safe';
+      return 'qualified';
     }
 
     if (thirdPlaceRank !== null && thirdPlaceRank <= 10) {
