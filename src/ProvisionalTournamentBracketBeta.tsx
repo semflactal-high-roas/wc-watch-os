@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  buildProvisionalTournamentTree,
+  buildTournamentTree,
   type BracketMatch,
   type ResolvedBracketSlot,
   type TournamentBlock,
   type TournamentBlockId,
+  type TournamentRound,
 } from './logic/tournamentPath';
 import type { AppData, StandingRow, Team } from './types';
 
@@ -23,21 +24,51 @@ const teamName = (teams: Team[], teamId: string): string => {
 };
 
 const slotText = (slot: ResolvedBracketSlot, teams: Team[]): string => {
-  if (slot.sourceLabel === '3位通過枠 / 未確定') return slot.sourceLabel;
-  if (!slot.teamId) return slot.sourceLabel;
-  return `${slot.sourceLabel} ${teamName(teams, slot.teamId)}`;
+  if (slot.teamId) return teamName(teams, slot.teamId);
+  if (slot.candidateTeamIds?.length === 2) {
+    const [firstTeamId, secondTeamId] = slot.candidateTeamIds;
+    if (!firstTeamId || !secondTeamId) return slot.sourceLabel;
+    const relationLabel = slot.relation === 'loser' ? '敗者' : '勝者';
+    return `${teamName(teams, firstTeamId)} vs ${teamName(teams, secondTeamId)} の${relationLabel}`;
+  }
+  return slot.sourceLabel;
 };
 
-const compactSlotLabel = (slot: ResolvedBracketSlot): string =>
-  slot.sourceLabel === '3位通過枠 / 未確定' ? slot.sourceLabel : slot.sourceLabel;
+const roundLabel = (round: TournamentRound): string => {
+  switch (round) {
+    case 'round32':
+      return 'Round of 32';
+    case 'round16':
+      return 'Round of 16';
+    case 'quarterfinal':
+      return '準々決勝';
+    case 'semifinal':
+      return '準決勝';
+    case 'third_place':
+      return '3位決定戦';
+    case 'final':
+      return '決勝';
+    default:
+      return round;
+  }
+};
+
+const matchScoreText = (match: BracketMatch): string | null => {
+  if (!match.played || match.homeScore == null || match.awayScore == null) return null;
+  return `${match.homeScore}-${match.awayScore}`;
+};
 
 function MatchCard({ match, teams }: { match: BracketMatch; teams: Team[] }) {
+  const scoreText = matchScoreText(match);
+
   return (
     <article className={`space-y-2 rounded-xl border p-3 ${match.isFavoritePath ? 'border-cyan-300 bg-cyan-300/10 ring-1 ring-cyan-300/40' : 'border-slate-700 bg-slate-800'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-bold text-violet-200">Match {match.id}</p>
         <div className="flex flex-wrap gap-1">
-          {match.isFavoritePath && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">推し国の想定対戦ルート</span>}
+          {match.date && match.kickoffTimeJST && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-slate-300">{match.date} {match.kickoffTimeJST} JST</span>}
+          {scoreText && <span className="rounded-full bg-emerald-300 px-2 py-1 text-xs font-bold text-slate-950">終了 {scoreText}</span>}
+          {match.isFavoritePath && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">推し国の接続</span>}
           {!match.isOfficialSlotConfirmed && <span className="rounded-full bg-amber-300/15 px-2 py-1 text-xs font-bold text-amber-200">要確認</span>}
         </div>
       </div>
@@ -45,8 +76,8 @@ function MatchCard({ match, teams }: { match: BracketMatch; teams: Team[] }) {
         <div key={`${match.id}-${index}`} className="rounded-lg bg-slate-950 px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold leading-6">{slotText(slot, teams)}</p>
-            {slot.isProvisional && slot.sourceLabel !== '3位通過枠 / 未確定' && (
-              <span className="rounded-full bg-amber-300/15 px-2 py-1 text-xs font-bold text-amber-200">暫定</span>
+            {slot.isProvisional && (
+              <span className="rounded-full bg-slate-700 px-2 py-1 text-xs font-bold text-slate-200">未消化試合の{slot.relation === 'loser' ? '敗者枠' : '勝者枠'}</span>
             )}
           </div>
         </div>
@@ -77,7 +108,7 @@ function BlockAccordion({
 }) {
   const includedSlots = block.round32
     .flatMap((match) => [match.home, match.away])
-    .map(compactSlotLabel)
+    .map((slot) => slotText(slot, teams))
     .filter((label, index, labels) => labels.indexOf(label) === index);
 
   return (
@@ -115,7 +146,7 @@ function BlockAccordion({
 
 export default function ProvisionalTournamentBracketBeta({ data, standings, mainFavoriteTeamId }: Props) {
   const tree = useMemo(
-    () => buildProvisionalTournamentTree({ standingsByGroup: standings, groups: data.groups, matches: data.matches, mainFavoriteTeamId }),
+    () => buildTournamentTree({ standingsByGroup: standings, groups: data.groups, matches: data.matches, mainFavoriteTeamId }),
     [data.groups, data.matches, mainFavoriteTeamId, standings],
   );
   const favoriteTeam = data.teams.find((team) => team.id === mainFavoriteTeamId);
@@ -139,42 +170,42 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
     <div className="space-y-5">
       <section className="space-y-3 rounded-2xl border border-violet-300/30 bg-slate-900 p-4 shadow-lg">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-bold text-violet-100">暫定トーナメント表β</h1>
-          {['非公式', '暫定', 'β'].map((label) => <span key={label} className="rounded-full border border-violet-300/40 bg-violet-300/10 px-2 py-1 text-xs font-bold text-violet-100">{label}</span>)}
+          <h1 className="text-xl font-bold text-violet-100">決勝トーナメント表</h1>
+          <span className="rounded-full border border-violet-300/40 bg-violet-300/10 px-2 py-1 text-xs font-bold text-violet-100">FIX</span>
         </div>
         <p className="text-sm leading-6 text-slate-200">
-          この表は、現在の暫定順位をもとにした非公式の想定トーナメント表です。3位通過枠と正式な組み合わせは、全グループの結果確定後に変動します。勝敗予想ではありません。
+          グループリーグ終了後の確定R32カードをもとに、未消化ラウンドは勝者枠・敗者枠で接続しています。勝敗予想ではありません。
         </p>
-        <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
-          公式発表ではありません。R32の1位・2位通過枠と接続順は公式scheduleに基づきますが、3位通過枠の正式な割り当ては未確定です。
+        <p className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs leading-5 text-cyan-100">
+          R32の終了済み試合は結果を反映し、次ラウンドの該当枠へ勝者を表示します。
         </p>
       </section>
 
       <section className="space-y-3 rounded-2xl border border-cyan-300/30 bg-slate-900 p-4 shadow-lg">
-        <h2 className="text-lg font-semibold text-cyan-200">推し国の想定対戦ルート</h2>
+        <h2 className="text-lg font-semibold text-cyan-200">推し国のトーナメント接続</h2>
         {!favoriteTeam ? (
-          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">メイン推し国を設定すると、現在順位ベースの想定対戦ルートを表示します。</p>
+          <p className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">メイン推し国を設定すると、決勝トーナメント表の該当カードを表示します。</p>
         ) : !favoriteRound32 ? (
           <div className="rounded-xl bg-slate-800 px-3 py-3 text-sm leading-6 text-slate-300">
-            <p className="font-bold text-slate-100">推し国の想定対戦ルートは未確定です。</p>
-            <p className="mt-1">現在の暫定R32枠にメイン推し国が入っていないため、正式な組み合わせ確定後に確認してください。</p>
+            <p className="font-bold text-slate-100">メイン推し国は決勝トーナメント表に見つかりません。</p>
+            <p className="mt-1">別の推し国を設定すると、該当カードを確認できます。</p>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm font-semibold">{teamName(data.teams, favoriteTeam.id)} の想定対戦ルート</p>
+            <p className="text-sm font-semibold">{teamName(data.teams, favoriteTeam.id)} のトーナメント接続</p>
             <div>
-              <p className="mb-2 text-xs font-bold text-slate-400">現在の暫定R32</p>
+              <p className="mb-2 text-xs font-bold text-slate-400">Round of 32</p>
               <MatchCard match={favoriteRound32} teams={data.teams} />
             </div>
             {favoriteLaterMatches.map((match) => (
               <div key={match.id} className="rounded-xl bg-cyan-300/10 px-3 py-3">
                 <p className="text-xs font-bold text-cyan-200">
-                  勝ち上がった場合の{match.round === 'round16' ? 'R16' : match.round === 'quarterfinal' ? '準々決勝' : match.round === 'semifinal' ? '準決勝' : '決勝'}
+                  {roundLabel(match.round)}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-cyan-50">Match {match.id} の勝者枠</p>
+                <p className="mt-1 text-sm font-semibold text-cyan-50">Match {match.id}</p>
               </div>
             ))}
-            <p className="text-xs leading-5 text-slate-400">勝ち上がりを断定する表示ではありません。</p>
+            <p className="text-xs leading-5 text-slate-400">未消化試合の勝敗を断定する表示ではありません。</p>
           </div>
         )}
       </section>
@@ -197,8 +228,8 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
 
       <section className="space-y-3 rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-lg">
         <div>
-          <h2 className="text-lg font-semibold">準決勝・決勝の接続</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-400">チームの進出を予想せず、各ブロックの勝者枠だけを接続しています。</p>
+          <h2 className="text-lg font-semibold">準決勝・3位決定戦・決勝の接続</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-400">チームの進出を予想せず、各ブロックの勝者枠・敗者枠だけを接続しています。</p>
         </div>
         {tree.semifinalConnections.map((connection) => (
           <div key={connection.match.id} className={`rounded-xl border px-3 py-3 ${connection.isFavoriteConnection ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-800'}`}>
@@ -206,13 +237,17 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
             <p className="mt-1 text-sm font-semibold">ブロック{connection.blockIds[0]}の勝者 vs ブロック{connection.blockIds[1]}の勝者</p>
           </div>
         ))}
+        <div className={`rounded-xl border px-3 py-3 ${tree.thirdPlaceConnection.isFavoritePath ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-800'}`}>
+          <p className="text-xs font-bold text-violet-200">3位決定戦 Match {tree.thirdPlaceConnection.id}</p>
+          <p className="mt-1 text-sm font-semibold">準決勝 {tree.semifinalConnections[0]?.match.id} の敗者 vs 準決勝 {tree.semifinalConnections[1]?.match.id} の敗者</p>
+        </div>
         <div className={`rounded-xl border px-3 py-3 ${tree.finalConnection.isFavoritePath ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-800'}`}>
           <p className="text-xs font-bold text-violet-200">決勝 Match {tree.finalConnection.id}</p>
           <p className="mt-1 text-sm font-semibold">準決勝 {tree.semifinalConnections[0]?.match.id} の勝者 vs 準決勝 {tree.semifinalConnections[1]?.match.id} の勝者</p>
         </div>
         {favoriteBlock && (
           <p className="rounded-xl bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-300">
-            推し国がこの想定対戦ルートを進む場合、反対側の準決勝につながるブロックとは決勝まで当たりません。
+            推し国の現在の接続ブロックを強調表示しています。未消化試合の結果は断定していません。
           </p>
         )}
       </section>

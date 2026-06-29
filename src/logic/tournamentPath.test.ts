@@ -1,72 +1,65 @@
 import { describe, expect, it } from 'vitest';
-import type { Group, StandingRow } from '../types';
+import type { Match } from '../types';
 import {
-  buildProvisionalTournamentTree,
+  buildTournamentTree,
+  FIXED_R32_SLOT_DEFINITIONS,
   type BracketMatch,
   type TournamentRound,
 } from './tournamentPath';
 
-const groupIds = 'ABCDEFGHIJKL'.split('');
-
-const standingRow = (teamId: string, points: number): StandingRow => ({
-  teamId,
-  played: 0,
-  won: 0,
-  draw: 0,
-  lost: 0,
-  goalsFor: 0,
-  goalsAgainst: 0,
-  goalDiff: 0,
-  points,
+const round32Match = (
+  id: string,
+  homeTeamId: string,
+  awayTeamId: string,
+  overrides: Partial<Match> = {},
+): Match => ({
+  id,
+  homeTeamId,
+  awayTeamId,
+  homeScore: null,
+  awayScore: null,
+  played: false,
+  date: '2026-06-30',
+  kickoffTimeJST: '02:00',
+  stage: 'round_of_32',
+  ...overrides,
 });
 
-const groups: Group[] = groupIds.map((groupId) => ({
-  id: groupId,
-  teamIds: [`${groupId}-1`, `${groupId}-2`, `${groupId}-3`, `${groupId}-4`],
-}));
-
-const standingsByGroup = groups.map((group) => ({
-  groupId: group.id,
-  rows: group.teamIds.map((teamId, index) => standingRow(teamId, 4 - index)),
-}));
+const round32Matches: Match[] = FIXED_R32_SLOT_DEFINITIONS.map((definition) =>
+  round32Match(definition.id, definition.homeTeamId, definition.awayTeamId, definition.id === 'R32-01'
+    ? {
+      homeScore: 0,
+      awayScore: 1,
+      played: true,
+      date: '2026-06-29',
+      kickoffTimeJST: '04:00',
+    }
+    : {}),
+);
 
 const buildTree = (mainFavoriteTeamId?: string) =>
-  buildProvisionalTournamentTree({
-    standingsByGroup,
-    groups,
-    matches: [],
+  buildTournamentTree({
+    matches: round32Matches,
     mainFavoriteTeamId,
   });
 
-const winnerSourceIds = (matches: BracketMatch[]): string[] =>
+const sourceIds = (matches: BracketMatch[], type: 'winner' | 'loser' = 'winner'): string[] =>
   matches.flatMap((match) =>
-    [match.homeSlot, match.awaySlot].flatMap((slot) => (slot.type === 'winner' ? [slot.matchId] : [])),
+    [match.homeSlot, match.awaySlot].flatMap((slot) => (slot.type === type ? [slot.matchId] : [])),
   );
 
-const hasGroupSlot = (
-  match: BracketMatch,
-  type: 'group_winner' | 'group_runner_up',
-  groupId: string,
-): boolean => [match.homeSlot, match.awaySlot].some((slot) => slot.type === type && slot.groupId === groupId);
+const connections = (matches: BracketMatch[], type: 'winner' | 'loser' = 'winner') =>
+  matches.map((match) => [match.id, ...sourceIds([match], type)]);
 
-const hasRound32Pair = (
-  matches: BracketMatch[],
-  first: ['group_winner' | 'group_runner_up', string],
-  second: ['group_winner' | 'group_runner_up', string],
-): boolean => matches.some((match) =>
-  hasGroupSlot(match, first[0], first[1]) && hasGroupSlot(match, second[0], second[1]),
-);
+const findMatch = (matches: BracketMatch[], matchId: string): BracketMatch => {
+  const match = matches.find((candidate) => candidate.id === matchId);
+  if (!match) throw new Error(`Missing test match ${matchId}`);
+  return match;
+};
 
-const roundOrder: TournamentRound[] = ['round32', 'round16', 'quarterfinal', 'semifinal', 'final'];
+const roundOrder: TournamentRound[] = ['round32', 'round16', 'quarterfinal', 'semifinal', 'third_place', 'final'];
 
-const roundTransitions: [TournamentRound, TournamentRound][] = [
-  ['round32', 'round16'],
-  ['round16', 'quarterfinal'],
-  ['quarterfinal', 'semifinal'],
-  ['semifinal', 'final'],
-];
-
-describe('buildProvisionalTournamentTree', () => {
+describe('buildTournamentTree', () => {
   it('builds the expected number of matches in every round', () => {
     const { rounds } = buildTree();
 
@@ -74,111 +67,142 @@ describe('buildProvisionalTournamentTree', () => {
     expect(rounds.round16).toHaveLength(8);
     expect(rounds.quarterfinal).toHaveLength(4);
     expect(rounds.semifinal).toHaveLength(2);
+    expect(rounds.third_place).toHaveLength(1);
     expect(rounds.final).toHaveLength(1);
   });
 
-  it('uses unique match ids and references only matches from the preceding round', () => {
+  it('uses unique match ids across the fixed knockout bracket', () => {
     const { rounds } = buildTree();
+    const ids = roundOrder.flatMap((round) => rounds[round].map((match) => match.id));
 
-    for (const round of roundOrder) {
-      const ids = rounds[round].map((match) => match.id);
-      expect(new Set(ids).size).toBe(ids.length);
-    }
-
-    for (const [precedingRound, currentRoundName] of roundTransitions) {
-      const currentRound = rounds[currentRoundName];
-      const precedingIds = new Set(rounds[precedingRound].map((match) => match.id));
-      const sourceIds = winnerSourceIds(currentRound);
-
-      expect(sourceIds).toHaveLength(currentRound.length * 2);
-      expect(sourceIds.every((sourceId) => precedingIds.has(sourceId))).toBe(true);
-    }
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('uses the official R32 group winner and runner-up pairings', () => {
+  it('keeps all R32 cards fixed with real team slots and no third-place placeholders', () => {
     const { round32 } = buildTree().rounds;
 
-    expect(hasRound32Pair(round32, ['group_winner', 'F'], ['group_runner_up', 'C'])).toBe(true);
-    expect(hasRound32Pair(round32, ['group_runner_up', 'F'], ['group_winner', 'C'])).toBe(true);
-    expect(hasRound32Pair(round32, ['group_runner_up', 'E'], ['group_runner_up', 'I'])).toBe(true);
-    expect(hasRound32Pair(round32, ['group_runner_up', 'F'], ['group_runner_up', 'E'])).toBe(false);
+    expect(round32.map((match) => [match.id, match.home.teamId, match.away.teamId])).toEqual([
+      ['R32-01', 'RSA', 'CAN'],
+      ['R32-02', 'BRA', 'JPN'],
+      ['R32-03', 'GER', 'PAR'],
+      ['R32-04', 'NED', 'MAR'],
+      ['R32-05', 'CIV', 'NOR'],
+      ['R32-06', 'FRA', 'SWE'],
+      ['R32-07', 'MEX', 'ECU'],
+      ['R32-08', 'ENG', 'COD'],
+      ['R32-09', 'BEL', 'SEN'],
+      ['R32-10', 'USA', 'BIH'],
+      ['R32-11', 'ESP', 'AUT'],
+      ['R32-12', 'POR', 'CRO'],
+      ['R32-13', 'SUI', 'ALG'],
+      ['R32-14', 'AUS', 'EGY'],
+      ['R32-15', 'ARG', 'CPV'],
+      ['R32-16', 'COL', 'GHA'],
+    ]);
+
+    expect(round32.flatMap((match) => [match.home, match.away]).some((slot) => slot.sourceLabel.includes('3位通過枠'))).toBe(false);
+    expect(round32.every((match) => match.homeSlot.type === 'team' && match.awaySlot.type === 'team')).toBe(true);
   });
 
-  it('uses the official winner connections from R32 through the final', () => {
+  it('reflects Canada 1-0 South Africa and advances Canada to R16-01', () => {
     const { rounds } = buildTree();
-    const connections = (matches: BracketMatch[]) =>
-      matches.map((match) => [match.id, ...winnerSourceIds([match])]);
+    const r32Canada = findMatch(rounds.round32, 'R32-01');
+    const r16Canada = findMatch(rounds.round16, 'R16-01');
+
+    expect(r32Canada).toMatchObject({
+      played: true,
+      homeScore: 0,
+      awayScore: 1,
+      date: '2026-06-29',
+      kickoffTimeJST: '04:00',
+    });
+    expect(r16Canada.home).toMatchObject({
+      teamId: 'CAN',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-01',
+      relation: 'winner',
+    });
+    expect(r16Canada.away).toMatchObject({
+      teamId: null,
+      isProvisional: true,
+      sourceMatchId: 'R32-04',
+      relation: 'winner',
+      candidateTeamIds: ['NED', 'MAR'],
+    });
+  });
+
+  it('uses the fixed winner connections from R32 through the final', () => {
+    const { rounds } = buildTree();
 
     expect(connections(rounds.round16)).toEqual([
-      ['R16-89', 'R32-74', 'R32-77'],
-      ['R16-90', 'R32-73', 'R32-75'],
-      ['R16-91', 'R32-76', 'R32-78'],
-      ['R16-92', 'R32-79', 'R32-80'],
-      ['R16-93', 'R32-83', 'R32-84'],
-      ['R16-94', 'R32-81', 'R32-82'],
-      ['R16-95', 'R32-86', 'R32-88'],
-      ['R16-96', 'R32-85', 'R32-87'],
+      ['R16-01', 'R32-01', 'R32-04'],
+      ['R16-02', 'R32-03', 'R32-06'],
+      ['R16-03', 'R32-02', 'R32-05'],
+      ['R16-04', 'R32-07', 'R32-08'],
+      ['R16-05', 'R32-12', 'R32-11'],
+      ['R16-06', 'R32-10', 'R32-09'],
+      ['R16-07', 'R32-15', 'R32-14'],
+      ['R16-08', 'R32-13', 'R32-16'],
     ]);
     expect(connections(rounds.quarterfinal)).toEqual([
-      ['QF-97', 'R16-89', 'R16-90'],
-      ['QF-98', 'R16-93', 'R16-94'],
-      ['QF-99', 'R16-91', 'R16-92'],
-      ['QF-100', 'R16-95', 'R16-96'],
+      ['QF-01', 'R16-02', 'R16-01'],
+      ['QF-02', 'R16-05', 'R16-06'],
+      ['QF-03', 'R16-03', 'R16-04'],
+      ['QF-04', 'R16-07', 'R16-08'],
     ]);
     expect(connections(rounds.semifinal)).toEqual([
-      ['SF-101', 'QF-97', 'QF-98'],
-      ['SF-102', 'QF-99', 'QF-100'],
+      ['SF-01', 'QF-01', 'QF-02'],
+      ['SF-02', 'QF-03', 'QF-04'],
     ]);
     expect(connections(rounds.final)).toEqual([
-      ['F-104', 'SF-101', 'SF-102'],
+      ['F-01', 'SF-01', 'SF-02'],
     ]);
   });
 
-  it('keeps every third-place slot unresolved without assigning a team', () => {
+  it('connects the third-place playoff from semifinal losers', () => {
     const { rounds } = buildTree();
-    const thirdPlaceSlots = rounds.round32.flatMap((match) =>
-      [
-        { definition: match.homeSlot, resolved: match.home },
-        { definition: match.awaySlot, resolved: match.away },
-      ].filter(({ definition }) => definition.type === 'third_place'),
-    );
 
-    expect(thirdPlaceSlots.length).toBeGreaterThan(0);
-    for (const { definition, resolved } of thirdPlaceSlots) {
-      expect(definition).toMatchObject({ type: 'third_place', unresolved: true });
-      expect(resolved).toMatchObject({
-        sourceLabel: '3位通過枠 / 未確定',
-        teamId: null,
-        isProvisional: true,
-        isUnresolved: true,
-      });
-    }
+    expect(connections(rounds.third_place, 'loser')).toEqual([
+      ['3P-01', 'SF-01', 'SF-02'],
+    ]);
   });
 
-  it('propagates the favorite path from its R32 match through the final', () => {
-    const tree = buildTree('A-1');
+  it('keeps unplayed R32 winner slots connected into R16', () => {
+    const { rounds } = buildTree();
+    const r16JapanPath = findMatch(rounds.round16, 'R16-03');
 
-    for (const round of roundOrder) {
-      expect(tree.rounds[round].filter((match) => match.isFavoritePath)).toHaveLength(1);
-    }
-
-    const highlightedIds = roundOrder.flatMap((round) =>
-      tree.rounds[round].filter((match) => match.isFavoritePath).map((match) => match.id),
-    );
-    expect(tree.favoritePath).toEqual({ teamId: 'A-1', matchIds: highlightedIds });
-
-    let precedingFavoriteMatchId = highlightedIds[0];
-    expect(precedingFavoriteMatchId).toBeDefined();
-
-    for (const [, currentRound] of roundTransitions) {
-      const highlightedMatch = tree.rounds[currentRound].find((match) => match.isFavoritePath);
-      expect(highlightedMatch).toBeDefined();
-      expect(winnerSourceIds(highlightedMatch ? [highlightedMatch] : [])).toContain(precedingFavoriteMatchId);
-      precedingFavoriteMatchId = highlightedMatch?.id;
-    }
+    expect(r16JapanPath.home).toMatchObject({
+      teamId: null,
+      isProvisional: true,
+      sourceMatchId: 'R32-02',
+      relation: 'winner',
+      candidateTeamIds: ['BRA', 'JPN'],
+    });
+    expect(r16JapanPath.away).toMatchObject({
+      teamId: null,
+      isProvisional: true,
+      sourceMatchId: 'R32-05',
+      relation: 'winner',
+      candidateTeamIds: ['CIV', 'NOR'],
+    });
   });
 
-  it('does not highlight a path when the favorite is absent from R32', () => {
+  it('preserves favorite path highlighting through the fixed bracket', () => {
+    const tree = buildTree('JPN');
+
+    expect(tree.favoritePath?.matchIds).toEqual(expect.arrayContaining([
+      'R32-02',
+      'R16-03',
+      'QF-03',
+      'SF-02',
+      '3P-01',
+      'F-01',
+    ]));
+    expect(findMatch(tree.rounds.round32, 'R32-02').isFavoritePath).toBe(true);
+  });
+
+  it('does not highlight a path when the favorite is absent from the bracket', () => {
     const tree = buildTree('not-in-round32');
     const allMatches = Object.values(tree.rounds).flat();
 
@@ -200,13 +224,5 @@ describe('buildProvisionalTournamentTree', () => {
       ['A', 'B'],
       ['C', 'D'],
     ]);
-  });
-
-  it('marks only the block containing the favorite as the favorite block', () => {
-    const favoriteTree = buildTree('A-1');
-    const noFavoriteTree = buildTree('not-in-round32');
-
-    expect(favoriteTree.blocks.filter((block) => block.isFavoriteBlock)).toHaveLength(1);
-    expect(noFavoriteTree.blocks.every((block) => !block.isFavoriteBlock)).toBe(true);
   });
 });

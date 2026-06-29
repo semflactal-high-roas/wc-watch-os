@@ -862,5 +862,181 @@
     "kickoffTimeJST": "06:00",
     "groupId": "L",
     "stage": "group"
+  },
+  {
+    "id": "R32-01",
+    "homeTeamId": "RSA",
+    "awayTeamId": "CAN",
+    "homeScore": 0,
+    "awayScore": 1,
+    "played": true,
+    "date": "2026-06-29",
+    "kickoffTimeJST": "04:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-02",
+    "homeTeamId": "BRA",
+    "awayTeamId": "JPN",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-06-30",
+    "kickoffTimeJST": "02:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-03",
+    "homeTeamId": "GER",
+    "awayTeamId": "PAR",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-06-30",
+    "kickoffTimeJST": "05:30",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-04",
+    "homeTeamId": "NED",
+    "awayTeamId": "MAR",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-06-30",
+    "kickoffTimeJST": "10:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-05",
+    "homeTeamId": "CIV",
+    "awayTeamId": "NOR",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-01",
+    "kickoffTimeJST": "02:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-06",
+    "homeTeamId": "FRA",
+    "awayTeamId": "SWE",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-01",
+    "kickoffTimeJST": "06:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-07",
+    "homeTeamId": "MEX",
+    "awayTeamId": "ECU",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-01",
+    "kickoffTimeJST": "10:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-08",
+    "homeTeamId": "ENG",
+    "awayTeamId": "COD",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-02",
+    "kickoffTimeJST": "01:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-09",
+    "homeTeamId": "BEL",
+    "awayTeamId": "SEN",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-02",
+    "kickoffTimeJST": "05:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-10",
+    "homeTeamId": "USA",
+    "awayTeamId": "BIH",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-02",
+    "kickoffTimeJST": "09:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-11",
+    "homeTeamId": "ESP",
+    "awayTeamId": "AUT",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-03",
+    "kickoffTimeJST": "04:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-12",
+    "homeTeamId": "POR",
+    "awayTeamId": "CRO",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-03",
+    "kickoffTimeJST": "08:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-13",
+    "homeTeamId": "SUI",
+    "awayTeamId": "ALG",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-03",
+    "kickoffTimeJST": "12:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-14",
+    "homeTeamId": "AUS",
+    "awayTeamId": "EGY",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-04",
+    "kickoffTimeJST": "03:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-15",
+    "homeTeamId": "ARG",
+    "awayTeamId": "CPV",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-04",
+    "kickoffTimeJST": "07:00",
+    "stage": "round_of_32"
+  },
+  {
+    "id": "R32-16",
+    "homeTeamId": "COL",
+    "awayTeamId": "GHA",
+    "homeScore": null,
+    "awayScore": null,
+    "played": false,
+    "date": "2026-07-04",
+    "kickoffTimeJST": "10:30",
+    "stage": "round_of_32"
   }
 ]
