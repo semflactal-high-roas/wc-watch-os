@@ -17,16 +17,16 @@ const match = (overrides: Partial<Match> = {}): Match => ({
 });
 
 describe('finished match result message', () => {
-  it('claims standings reflection for a played group-stage match', () => {
+  it('uses archive wording for a played group-stage match', () => {
     expect(getFinishedMatchResultMessage(match({ played: true, homeScore: 2, awayScore: 2 }))).toBe(
-      '終了した試合です。現在の順位表・3位通過ラインに結果が反映されています。',
+      '終了したグループステージの試合です。結果は大会記録として反映されています。',
     );
   });
 
-  it('explains that a status-only finished group-stage result is awaiting manual standings update', () => {
+  it('uses archive wording for a status-only finished group-stage result', () => {
     const statusFinishedMatch = { ...match(), status: 'finished' };
 
-    expect(getFinishedMatchResultMessage(statusFinishedMatch)).toBe('試合は終了扱いですが、結果は手動更新後に順位表・3位通過ラインへ反映されます。');
+    expect(getFinishedMatchResultMessage(statusFinishedMatch)).toBe('試合は終了扱いですが、結果は手動更新後に大会記録へ反映されます。');
   });
 
   it('does not claim standings reflection for a played knockout match', () => {

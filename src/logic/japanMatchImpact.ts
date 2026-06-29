@@ -31,10 +31,18 @@ export const getJapanMatchImpactItems = (match: Match, teams: Team[]): JapanMatc
   const opponentName = getJapanOpponentName(match, teams);
   const opponentPrefix = opponentName ? `${opponentName}戦: ` : '';
 
+  if (match.stage !== 'group') {
+    return [
+      { label: '勝利', text: `${opponentPrefix}次ラウンドへ進出` },
+      { label: '90分終了時同点', text: `${opponentPrefix}延長戦・PK戦で勝者を決定` },
+      { label: '敗戦', text: `${opponentPrefix}大会終了` },
+    ];
+  }
+
   return [
-    { label: '勝利', text: `${opponentPrefix}勝点3を積み上げ、2位以内通過に近づく` },
-    { label: '引分', text: `${opponentPrefix}勝点1は取れるが、他会場結果の影響が大きくなる` },
-    { label: '敗戦', text: `${opponentPrefix}勝点を積めず、3位通過ラインや他会場依存が強まる` },
+    { label: '勝利', text: `${opponentPrefix}グループステージ結果として勝利を記録` },
+    { label: '引分', text: `${opponentPrefix}グループステージ結果として引き分けを記録` },
+    { label: '敗戦', text: `${opponentPrefix}グループステージ結果として敗戦を記録` },
   ];
 };
 

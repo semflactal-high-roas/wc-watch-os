@@ -127,7 +127,7 @@ const scoreMatch = (
 
   if (targetTeamIds.length > 0 && match.stage === 'group' && isSameGroupMatch(match, teams, groups, targetTeamIds)) {
     importanceScore += 20;
-    reasonTags.push('応援する国と同組');
+    reasonTags.push('応援する国のグループ関連');
   }
 
   const stageScore = knockoutStageScores[match.stage] ?? 0;

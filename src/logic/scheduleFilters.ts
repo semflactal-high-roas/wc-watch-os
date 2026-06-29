@@ -108,7 +108,7 @@ export const getScheduleFilterOptions = (
     { id: 'today_next', label: '今日・次の試合' },
     { id: 'japan', label: '日本代表' },
     { id: 'supported', label: '応援する国' },
-    { id: 'japan_group', label: '日本と同じ組' },
+    { id: 'japan_group', label: '日本のグループ' },
     { id: 'all', label: 'すべて' },
   ];
 

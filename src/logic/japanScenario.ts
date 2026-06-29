@@ -54,26 +54,26 @@ export const getJapanScenarioMessages = (
   const messages: string[] = [];
 
   if (remainingMatches === 0) {
-    messages.push('グループ全日程を消化済みです。突破判定は順位表と3位通過ラインを確認してください。');
+    messages.push('グループ全日程を消化済みです。決勝トーナメント表で次戦を確認できます。');
   } else if (remainingMatches === 3) {
-    messages.push('まだ全試合が残っています。初戦の結果がグループ突破の難易度を大きく左右します。');
+    messages.push('グループステージの未消化試合があります。結果更新後に大会記録へ反映されます。');
   }
 
   if (japanStanding) {
     if (japanStanding.points > 0 && remainingMatches > 0) {
-      messages.push('勝点を積み上げられています。次戦でさらに勝点を取れれば、2位以内通過に近づきます。');
+      messages.push('グループステージの結果は記録として確認できます。');
     }
 
     if (japanStanding.points === 0 && remainingMatches < 3 && remainingMatches > 0) {
-      messages.push('勝点の積み上げが必要です。次戦で勝点3を取れるかが重要です。');
+      messages.push('未反映のグループステージ結果は、手動更新後に記録へ反映されます。');
     }
   }
 
   if (nextMatch) {
-    messages.push('次戦は勝てば勝点3、引き分けなら勝点1、敗戦なら他会場依存が強まります。');
+    messages.push('次戦の結果はグループステージ記録として反映されます。');
   }
 
-  return messages.length > 0 ? messages : ['現在の順位と同組の試合結果を見ながら、突破の見通しを確認してください。'];
+  return messages.length > 0 ? messages : ['グループステージの結果と決勝トーナメント表を確認してください。'];
 };
 
 export const getJapanScenarioSummary = (
@@ -100,13 +100,13 @@ export const getJapanScenarioSummary = (
   const baseMessages = getJapanScenarioMessages(japanStanding, remainingMatches, nextMatch);
   const rankMessages = japanStanding
     ? rankIndex + 1 <= 2
-      ? ['現在は自力突破圏内です。次戦で勝点を積めれば、2位以内通過に近づきます。']
+      ? [`Group ${groupId} ${rankIndex + 1}位として記録されています。`]
       : rankIndex + 1 === 3
-        ? ['現在は3位通過ラインも意識する位置です。同組の他試合と3位ランキングの両方が重要になります。']
-        : ['現在は苦しい位置です。次戦で勝点3を取れるかが重要です。']
+        ? [`Group ${groupId} ${rankIndex + 1}位として記録されています。`]
+        : [`Group ${groupId} ${rankIndex + 1}位として記録されています。`]
     : [];
   const nextMatchMessages = nextMatch && nextOpponentName
-    ? [`次戦は ${nextOpponentName} 戦です。勝てば勝点3、引き分けなら勝点1、敗戦なら他会場依存が強まります。`]
+    ? [`次戦は ${nextOpponentName} 戦です。結果更新後に大会記録へ反映されます。`]
     : [];
   const watchGroupMatches = sortByKickoff(
     groupMatches.filter((match) => !isFinishedMatchForDisplay(match) && !matchIncludesTeam(match, japanTeamId)),
