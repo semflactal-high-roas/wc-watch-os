@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Public URL | `https://semflactal-high-roas.github.io/wc-watch-os/` | `docs/14_manual_qa_checklist.md`、`docs/08_real_data_entry.md`、`src/logic/shareCopy.ts`、`index.html` に記載 |
 | Current release status | β版として扱う。公開可否は要確認 | `docs/15_beta_release_checklist.md` にβ公開条件と「β版として扱う」の記載あり。チェック項目の実施結果はrepo内で未記録 |
-| Last checked | 2026-06-09 JST | このスナップショットの更新日 |
+| Last checked | 2026-06-29 JST | FIXトーナメント表更新後のrepo状態を確認 |
 | GitHub Pages deploy status | 要確認 | `.github/workflows/deploy.yml` にmain更新時のPagesデプロイ処理あり。最新デプロイの成否はrepo内だけでは確認できない |
 | Build / validation status | `npm run build`: 成功。`npm run validate`: scriptなし。`npm run validate:data`: 成功 | 2026-06-09 JST にmainのローカル取得内容で確認。GitHub Actions上の最新実行状況は要確認 |
 
@@ -14,10 +14,10 @@
 
 | Item | Details |
 | --- | --- |
-| Latest merged PR | [#36 Replace DOM polish with React date display](https://github.com/semflactal-high-roas/wc-watch-os/pull/36)（2026-06-04マージ） |
-| Main changes | DOM後処理コンポーネントを削除し、β表示ラベル、曜日つき日付、補助文言、3位通過ライン説明などをReact JSXと通常の表示ロジックへ移行 |
-| Confirmed checks | PR本文に GitHub Actions Build run 230 で `npm run validate:data` と `npm run build` が成功した記録あり |
-| Notes | `public/data/*.json` の変更なし。最新mainのGitHub Pages Deploy成否と公開画面の手動QA結果は要確認 |
+| Latest merged PR | [#58 data: add fixed knockout bracket and Canada South Africa result](https://github.com/semflactal-high-roas/wc-watch-os/pull/58)（2026-06-29マージ） |
+| Main changes | R32の16試合を `public/data/matches.json` に追加し、South Africa 0-1 Canadaを反映。トーナメント表はFIX版のR32カードとR16以降の勝者枠・敗者枠接続で表示 |
+| Confirmed checks | PR #58 で `npm run validate:data`、`npm test`、`npm run build`、GitHub Actionsが成功 |
+| Notes | `teams.json` / `groups.json` / `config.json` の変更なし。最新GitHub Pages Deploy成否と公開画面の手動QA結果は要確認 |
 
 ## 3. Current Implemented Scope
 
@@ -27,7 +27,7 @@
 | Vite + React + TypeScript | 実装済み | `package.json`、`vite.config.ts`、`src/main.tsx`、`src/App.tsx` で確認 |
 | スマホ向けUI | 実装済み | `src/App.tsx` の `max-w-md`、固定ボトムナビ、カードUIで確認。実端末QA結果は要確認 |
 | メインタブ構成 | 実装済み | 下部ナビを「ホーム / 日程 / 順位 / トーナメント」の4タブに整理。設定はHome内導線から開く |
-| グループステージ全72試合データ | 実装済み | `public/data/matches.json` は72件。`public/data/groups.json` はGroups A-Lの12組、`teams.json` は48件 |
+| 試合データ | 実装済み | `public/data/matches.json` はグループ72試合＋R32 16試合の計88件。`public/data/groups.json` はGroups A-Lの12組、`teams.json` は48件 |
 | 日本時間・曜日つき表示 | 実装済み | `src/logic/dateTimeDisplay.ts` と `src/App.tsx` で確認 |
 | 時間帯ラベル | 実装済み | `src/logic/timeOfDayLabel.ts` と試合カード・詳細での利用を確認 |
 | 日本代表＋推し国設定 | 実装済み | 日本代表は固定追跡対象。`src/App.tsx` の設定画面でメイン・追加の応援国を設定可能 |
@@ -36,7 +36,7 @@
 | 重要度S/A/B/C | 一部実装 | `src/logic/matchImportance.ts` でS/A/B/Cを決定論的に算出。主要UIでは `高 / 中 / 低` 表示へ変換している箇所あり |
 | グループ順位表 | 実装済み | `src/logic/standings.ts` と `src/App.tsx` の順位表示を確認 |
 | 3位通過ライン | 実装済み | `src/logic/thirdPlaceRanking.ts`、`thirdPlaceLine.ts` と表示を確認。詳細タイブレークは未反映 |
-| 暫定トーナメント表β | 一部実装 | 専用の「トーナメント」画面で推し国の想定対戦ルートを先に表示し、R32〜準々決勝をブロックA〜Dの縦型アコーディオン、準決勝〜Finalを勝者枠の接続として表示。R32の1位・2位通過枠と接続順は公式schedule準拠。3位通過枠の正式割り当ては未確定で、勝敗予想は行わない |
+| 決勝トーナメント表 | 実装済み | 専用の「トーナメント」画面でFIX済みR32カード、R16〜Finalの勝者枠接続、3位決定戦の敗者枠接続を表示。CanadaはSouth Africa戦の勝者としてR16-01へ反映。未消化試合の勝敗予想は行わない |
 | 試合詳細 | 実装済み | `src/App.tsx` のMatch Detail画面を確認 |
 | ICSカレンダー追加 | 実装済み | `src/logic/ics.ts` とMatch Detailの導線を確認 |
 | 共有文コピー | 実装済み | `src/logic/shareCopy.ts` とHome・Match Detailの導線を確認 |
@@ -53,8 +53,8 @@
 - `docs/14_manual_qa_checklist.md` と `docs/15_beta_release_checklist.md` のチェック結果はrepo内で未記録。
 - `npm run validate` scriptは存在しない。現在のデータ検証scriptは `npm run validate:data`。
 - X共有カードのCanvas/PNG生成は未実装。共有文コピーは実装済み。
-- ノックアウトステージは未投入で、全104試合は未対応。
-- 暫定トーナメント表βのR32の1位・2位通過枠と接続順は公式schedule準拠。3位通過枠の正式割り当ては未実装・未確定で、公式ブラケット完全再現ではない。
+- R16以降の未消化カードは、存在しないTBDチームを作らず、前ラウンドの勝者枠・敗者枠として表示している。
+- 全104試合のうち、現時点でrepoに投入済みなのはグループ72試合＋R32 16試合。
 - 外部API連携と結果の自動更新は未実装。結果更新は当面手動。
 - 詳細タイブレーク、直接対決、フェアプレーポイント、抽選条件は未反映。
 - FIFA公式データの再確認と、更新後の公開画面確認は手動運用。

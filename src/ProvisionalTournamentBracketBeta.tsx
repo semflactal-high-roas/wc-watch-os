@@ -174,7 +174,7 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
           <span className="rounded-full border border-violet-300/40 bg-violet-300/10 px-2 py-1 text-xs font-bold text-violet-100">FIX</span>
         </div>
         <p className="text-sm leading-6 text-slate-200">
-          グループリーグ終了後の確定R32カードをもとに、未消化ラウンドは勝者枠・敗者枠で接続しています。勝敗予想ではありません。
+          グループリーグ終了後に確定した決勝トーナメント表です。未消化の試合は前ラウンドの勝者枠・敗者枠で表示しています。勝敗予想ではありません。
         </p>
         <p className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs leading-5 text-cyan-100">
           R32の終了済み試合は結果を反映し、次ラウンドの該当枠へ勝者を表示します。

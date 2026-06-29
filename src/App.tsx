@@ -83,6 +83,8 @@ const formatTeamName = (teams: Team[], teamId: string): string => {
 const teamName = formatTeamName;
 const matchIncludesTeam = (match: Match, teamId: string): boolean => match.homeTeamId === teamId || match.awayTeamId === teamId;
 const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.group ?? '';
+const isKnockoutStage = (match: Match): boolean => match.stage !== 'group';
+const hasKnockoutStageMatches = (matches: Match[]): boolean => matches.some(isKnockoutStage);
 const scoreLabel = (match: Match): string => {
   if (!isFinishedMatchForDisplay(match)) return 'これから';
   return match.homeScore === null || match.awayScore === null ? '結果確認' : `${match.homeScore} - ${match.awayScore}`;
@@ -331,6 +333,7 @@ function HomeScreen({
         qualificationSummaries={qualificationSummaries}
         japanNextMatch={japanMatches[0] ?? null}
         favoriteNextMatch={favoriteNextMatch}
+        knockoutStarted={hasKnockoutStageMatches(data.matches)}
         now={now}
         onSettingsOpen={onSettingsOpen}
         onStandingsOpen={onStandingsOpen}
@@ -446,9 +449,18 @@ function HomePrimaryMatchSection({
   );
 }
 
+const formatReasonTag = (tag: string): string => tag;
+
 const getHomeDecisionTags = (match: MatchWithImportance): string[] => {
-  if (match.stage !== 'group') return match.reasonTags;
-  return [...new Set([...match.reasonTags, '3位通過ラインに影響', 'トーナメント表の組み合わせに影響'])];
+  const tags = match.reasonTags.map(formatReasonTag);
+  if (isKnockoutStage(match)) {
+    const knockoutTags = match.stage === 'round_of_32'
+      ? ['一発勝負', 'ラウンド16進出']
+      : ['一発勝負', '次ラウンド進出'];
+    return [...new Set([...tags, ...knockoutTags])];
+  }
+
+  return [...new Set([...tags, 'グループステージ記録'])];
 };
 
 function SupportedTeamStatusSection({
@@ -457,6 +469,7 @@ function SupportedTeamStatusSection({
   qualificationSummaries,
   japanNextMatch,
   favoriteNextMatch,
+  knockoutStarted,
   now,
   onSettingsOpen,
   onStandingsOpen,
@@ -468,6 +481,7 @@ function SupportedTeamStatusSection({
   qualificationSummaries: QualificationSummary[];
   japanNextMatch: MatchWithImportance | null;
   favoriteNextMatch: MatchWithImportance | null;
+  knockoutStarted: boolean;
   now: Date;
   onSettingsOpen: () => void;
   onStandingsOpen: () => void;
@@ -492,6 +506,7 @@ function SupportedTeamStatusSection({
           summary={japanSummary}
           nextMatch={japanNextMatch}
           teams={teams}
+          knockoutStarted={knockoutStarted}
           now={now}
           onMatchSelect={onMatchSelect}
         />
@@ -502,6 +517,7 @@ function SupportedTeamStatusSection({
             summary={favoriteSummary}
             nextMatch={favoriteNextMatch}
             teams={teams}
+            knockoutStarted={knockoutStarted}
             now={now}
             onMatchSelect={onMatchSelect}
           />
@@ -531,6 +547,7 @@ function SupportedTeamStatusLine({
   summary,
   nextMatch,
   teams,
+  knockoutStarted,
   now,
   onMatchSelect,
 }: {
@@ -539,6 +556,7 @@ function SupportedTeamStatusLine({
   summary: QualificationSummary | null;
   nextMatch: MatchWithImportance | null;
   teams: Team[];
+  knockoutStarted: boolean;
   now: Date;
   onMatchSelect: (matchId: string) => void;
 }) {
@@ -549,19 +567,22 @@ function SupportedTeamStatusLine({
       : nextMatch.homeTeamId
     : null;
   const position = context?.groupRank
-    ? `現在 Group ${context.groupId} ${context.groupRank}位 / 勝点 ${context.standing?.points ?? '-'}`
-    : '現在地は順位タブで確認';
+    ? `Group ${context.groupId} ${context.groupRank}位`
+    : knockoutStarted
+      ? '決勝トーナメント表で確認'
+      : '現在地は順位タブで確認';
+  const statusLabel = knockoutStarted ? '決勝トーナメント' : summary?.statusLabel;
 
   return (
     <article className="space-y-2 rounded-xl bg-slate-800 px-3 py-3">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm font-semibold">{label}: {teamName(teams, teamId)}</p>
-        {summary && <span className="shrink-0 text-xs font-semibold text-cyan-200">{summary.statusLabel}</span>}
+        {statusLabel && <span className="shrink-0 text-xs font-semibold text-cyan-200">{statusLabel}</span>}
       </div>
       <p className="text-xs text-slate-300">{position}</p>
       {nextMatch && opponentId ? (
         <button type="button" onClick={() => onMatchSelect(nextMatch.id)} className="w-full rounded-lg bg-slate-950 px-3 py-2 text-left text-xs font-semibold text-cyan-200">
-          次戦 {formatViewingDecisionTime(nextMatch, now)} / vs {teamName(teams, opponentId)}
+          次戦 {formatViewingDecisionTime(nextMatch, now)} / {formatMatchStage(nextMatch)} vs {teamName(teams, opponentId)}
         </button>
       ) : (
         <p className="rounded-lg bg-slate-950 px-3 py-2 text-xs text-slate-400">次戦は未確定です。</p>
@@ -594,7 +615,7 @@ function RecentFinishedResultsSection({
           <div key={match.id} className="space-y-2">
             <MatchCard match={match} teams={teams} compact onSelect={() => onMatchSelect(match.id)} />
             <p className="rounded-lg bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-300">
-              {getFinishedMatchResultMessage(match) ?? '結果確認後、順位とトーナメント表の組み合わせを確認してください。'}
+              {getFinishedMatchResultMessage(match) ?? '結果確認後、トーナメント表の次ラウンド枠を確認してください。'}
             </p>
           </div>
         ))}
@@ -784,7 +805,7 @@ function MatchCard({
   onSelect?: () => void;
 }) {
   const importance = 'importanceScore' in match ? match : null;
-  const displayTags = importance ? (extraTags.length > 0 ? extraTags : importance.reasonTags) : [];
+  const displayTags = importance ? (extraTags.length > 0 ? extraTags : importance.reasonTags).map(formatReasonTag) : [];
   const scheduleStatus = scheduleDisplayState === 'finished'
     ? { score: scoreLabel(match), label: getScheduleDisplayStateLabel(scheduleDisplayState) }
     : scheduleDisplayState === 'started_awaiting_result'
@@ -869,7 +890,7 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, today, r
         <button type="button" onClick={handleDownloadIcs} className="w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200">カレンダーに追加</button>
         <p className="text-xs leading-5 text-slate-400">{calendarHelperText}</p>
         <ShareButton onClick={handleShare} status={shareStatus} />
-        <div className="flex flex-wrap gap-2">{match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}</div>
+        <div className="flex flex-wrap gap-2">{match.reasonTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{formatReasonTag(tag)}</span>)}</div>
       </section>
 
       <section className="space-y-3 rounded-2xl bg-slate-900 p-4 shadow-lg">
@@ -889,15 +910,23 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, today, r
 
 const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences: UserPreferences, trackedTeamIds: string[]): string[] => {
   const points: string[] = [];
+  const finishedResultMessage = getFinishedMatchResultMessage(match);
 
   if (matchIncludesTeam(match, japanTeamId)) points.push('日本代表が関係する試合です。');
   if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) points.push('メインで応援する国が関係する試合です。');
   if (preferences.selectedTeamIds.some((teamId) => matchIncludesTeam(match, teamId))) points.push('応援中の国が関係する試合です。');
-  if (match.stage === 'group' && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('応援する国と同組のため、順位に影響する可能性があります。');
-  if (match.stage === 'group') points.push('3位通過ラインに関わる可能性があります。');
-  const finishedResultMessage = getFinishedMatchResultMessage(match);
+
+  if (!finishedResultMessage && isKnockoutStage(match)) {
+    points.push(match.stage === 'round_of_32'
+      ? '勝者がラウンド16へ進む一発勝負です。'
+      : '勝者枠が次ラウンドへ接続するノックアウト戦です。');
+    if (match.id === 'R32-04') points.push('勝者がR16でCanadaと対戦します。');
+  }
+
+  if (!isKnockoutStage(match) && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('応援する国のグループに属するチームの試合です。');
+  if (!isKnockoutStage(match)) points.push('グループステージの記録として確認できます。');
   if (finishedResultMessage) points.push(finishedResultMessage);
-  if (points.length === 0) points.push('今後のラウンドや他会場結果を見るうえで参考になる試合です。');
+  if (points.length === 0) points.push('次ラウンドの組み合わせを確認するうえで参考になる試合です。');
 
   return [...new Set(points)];
 };
@@ -908,10 +937,18 @@ const getImpactItems = (match: Match): { label: string; text: string }[] => {
     return [{ label: match.played ? '終了済み' : '終了済み / 結果待ち', text: finishedResultMessage }];
   }
 
+  if (isKnockoutStage(match)) {
+    return [
+      { label: '勝利時', text: match.stage === 'final' ? '大会の優勝が決まります。' : '次ラウンドへ進出します。' },
+      { label: '90分終了時同点', text: '延長戦・PK戦で勝者を決めます。' },
+      { label: '敗戦時', text: match.stage === 'third_place' ? '今大会の最終順位が確定します。' : '大会終了です。' },
+    ];
+  }
+
   return [
-    { label: '勝利時', text: '勝点3を積み上げ、突破圏に近づきます。' },
-    { label: '引き分け時', text: '勝点1を積み上げますが、他会場結果の影響を受けやすくなります。' },
-    { label: '敗戦時', text: '勝点を積めず、3位通過ラインや他会場結果への依存が高まります。' },
+    { label: '勝利時', text: 'グループステージ結果として勝利が記録されます。' },
+    { label: '引き分け時', text: 'グループステージ結果として引き分けが記録されます。' },
+    { label: '敗戦時', text: 'グループステージ結果として敗戦が記録されます。' },
   ];
 };
 
