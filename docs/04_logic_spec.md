@@ -131,6 +131,27 @@ export type Match = {
 };
 ```
 
+MVP実装では `public/data/matches.json` の `Match` に手動反映済み結果も持たせる。
+
+```ts
+export type MatchDecision =
+  | "regular"
+  | "extra_time"
+  | "penalties";
+
+export type MatchResultFields = {
+  homeScore: number | null;
+  awayScore: number | null;
+  played: boolean;
+  homePenaltyScore?: number;
+  awayPenaltyScore?: number;
+  winnerTeamId?: string;
+  decidedBy?: MatchDecision;
+};
+```
+
+PK決着では `homeScore` / `awayScore` は試合スコアの同点を保持し、PKスコアと `winnerTeamId` で勝者を決定論的に表現する。
+
 ## 2.3 Result
 
 ```ts
@@ -696,7 +717,8 @@ R16以降の結果が確定したら、以下を追加する。
 
 - FIX済みR32は実チームIDで `matches.json` に持つ。
 - R16以降は前ラウンドの勝者枠・敗者枠を接続し、未消化試合の勝者や勝ち上がりを予想しない。
-- 終了済みノックアウト試合はscoreから勝者を決定論的に解決し、次ラウンドの該当枠へ表示する。
+- 終了済みノックアウト試合はscore、またはPK決着時の `winnerTeamId` / penalty score から勝者を決定論的に解決し、次ラウンドの該当枠へ表示する。
+- PK決着の表示は通常スコアを残したうえで `1-1 (PK 3-4)` のようにPKスコアを併記する。
 - メイン推し国がR32または勝者枠候補に含まれる場合、そのカードからFinal/3位決定戦まで接続する枠を強調できる情報を返す。
 - スマホ表示ではR32〜準々決勝をブロックA〜Dに分け、各ブロックを縦型アコーディオンで表示する。
 - ブロックA/Bは準決勝1、ブロックC/Dは準決勝2へ接続し、準決勝・決勝は勝者枠として表示する。

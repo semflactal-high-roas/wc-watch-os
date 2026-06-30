@@ -172,6 +172,18 @@ AIは見る理由、解説文、X投稿文などの生成に使う。
 | `status` | string | 必須 | `scheduled` / `finished` / `postponed` / `cancelled` / `tbd` |
 | `sourceMatchId` | string | 任意 | 外部API側の試合ID |
 
+MVP実装では、日程と手動反映済み結果を `public/data/matches.json` の同一レコードで管理する。結果系フィールドは以下。
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---:|---|
+| `homeScore` | number/null | 必須 | ホーム扱いチームの得点。未消化は `null` |
+| `awayScore` | number/null | 必須 | アウェイ扱いチームの得点。未消化は `null` |
+| `played` | boolean | 必須 | 試合終了済みなら `true` |
+| `homePenaltyScore` | number | 任意 | PK戦がある場合のホーム扱いチームのPK得点 |
+| `awayPenaltyScore` | number | 任意 | PK戦がある場合のアウェイ扱いチームのPK得点 |
+| `winnerTeamId` | string | 任意 | ノックアウト戦で同点後PKなどにより勝者を明示するチームID |
+| `decidedBy` | string | 任意 | `regular` / `extra_time` / `penalties`。PK決着では `penalties` |
+
 ## 4.4 注意点
 
 - `kickoffJst` は必ず日本時間で保存する
@@ -179,6 +191,8 @@ AIは見る理由、解説文、X投稿文などの生成に使う。
 - API連携する場合は `sourceMatchId` を使って照合する
 - 決勝トーナメントで対戦相手未定の場合は `homeTeamId` / `awayTeamId` に `tbd_xxx` を入れる
 - 日程変更があった場合は `matches.json` を更新する
+- PK決着の試合だけ `homePenaltyScore` / `awayPenaltyScore` / `winnerTeamId` / `decidedBy: "penalties"` を追加する
+- PKのない試合へ不要なPKフィールドを追加しない
 
 ---
 
@@ -489,6 +503,7 @@ insights.json に保存
 - `homeTeamId` / `awayTeamId` が `teams.json` に存在する
 - `kickoffJst` がISO形式である
 - `stage` が許可値である
+- PK決着では `homePenaltyScore` / `awayPenaltyScore` / `winnerTeamId` / `decidedBy` が整合している
 
 ## 12.4 results.json
 

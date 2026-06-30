@@ -21,6 +21,7 @@ const validStages = new Set([
   'third_place',
   'final',
 ]);
+const validDecidedBy = new Set(['regular', 'extra_time', 'penalties']);
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const kickoffTimePattern = /^\d{2}:\d{2}$/;
@@ -207,6 +208,9 @@ const validateMatchScores = (match) => {
   const matchId = formatId(match.id);
   const hasHomeScore = typeof match.homeScore === 'number';
   const hasAwayScore = typeof match.awayScore === 'number';
+  const hasHomePenaltyScore = typeof match.homePenaltyScore === 'number';
+  const hasAwayPenaltyScore = typeof match.awayPenaltyScore === 'number';
+  const hasPenaltyScore = hasHomePenaltyScore || hasAwayPenaltyScore;
 
   if (match.played === true && (!hasHomeScore || !hasAwayScore)) {
     errors.push(`Match ${matchId} is played but homeScore / awayScore are not both numbers.`);
@@ -216,8 +220,52 @@ const validateMatchScores = (match) => {
     errors.push(`Match ${matchId} is not played, so homeScore / awayScore must both be null.`);
   }
 
+  if (match.played === false && (hasPenaltyScore || match.winnerTeamId || match.decidedBy)) {
+    errors.push(`Match ${matchId} is not played, so penalty scores, winnerTeamId, and decidedBy must be omitted.`);
+  }
+
   if (typeof match.played !== 'boolean') {
     errors.push(`Match ${matchId} has invalid played value. Use true or false.`);
+  }
+
+  if (match.decidedBy !== undefined && !validDecidedBy.has(match.decidedBy)) {
+    errors.push(`Match ${matchId} has invalid decidedBy: ${match.decidedBy}.`);
+  }
+
+  if (match.homePenaltyScore !== undefined && !hasHomePenaltyScore) {
+    errors.push(`Match ${matchId} has invalid homePenaltyScore. Use a number or omit the field.`);
+  }
+
+  if (match.awayPenaltyScore !== undefined && !hasAwayPenaltyScore) {
+    errors.push(`Match ${matchId} has invalid awayPenaltyScore. Use a number or omit the field.`);
+  }
+
+  if (hasPenaltyScore && (!hasHomePenaltyScore || !hasAwayPenaltyScore)) {
+    errors.push(`Match ${matchId} must include both homePenaltyScore and awayPenaltyScore for a penalty shootout.`);
+  }
+
+  if (hasPenaltyScore && match.decidedBy !== 'penalties') {
+    errors.push(`Match ${matchId} has penalty scores but decidedBy is not "penalties".`);
+  }
+
+  if (match.decidedBy === 'penalties') {
+    if (match.stage === 'group') {
+      errors.push(`Match ${matchId} cannot use decidedBy "penalties" in the group stage.`);
+    }
+
+    if (typeof match.winnerTeamId !== 'string' || match.winnerTeamId.length === 0) {
+      errors.push(`Match ${matchId} is decided by penalties but winnerTeamId is missing.`);
+    }
+
+    if (!hasHomeScore || !hasAwayScore || match.homeScore !== match.awayScore) {
+      errors.push(`Match ${matchId} is decided by penalties but homeScore / awayScore are not tied numbers.`);
+    }
+
+    if (!hasHomePenaltyScore || !hasAwayPenaltyScore) {
+      errors.push(`Match ${matchId} is decided by penalties but penalty scores are missing.`);
+    } else if (match.homePenaltyScore === match.awayPenaltyScore) {
+      errors.push(`Match ${matchId} has tied penalty scores.`);
+    }
   }
 
   return errors;
@@ -335,6 +383,14 @@ const validateMatches = (matches, teams, groups) => {
       errors.push(`Match ${matchId} has unknown awayTeamId: ${match.awayTeamId}`);
     }
 
+    if (match.winnerTeamId !== undefined) {
+      if (!teamIds.has(match.winnerTeamId)) {
+        errors.push(`Match ${matchId} has unknown winnerTeamId: ${match.winnerTeamId}`);
+      } else if (![match.homeTeamId, match.awayTeamId].includes(match.winnerTeamId)) {
+        errors.push(`Match ${matchId} winnerTeamId must be either homeTeamId or awayTeamId.`);
+      }
+    }
+
     if (match.homeTeamId === match.awayTeamId) {
       errors.push(`Match ${matchId} has the same homeTeamId and awayTeamId: ${match.homeTeamId}`);
     }
@@ -391,6 +447,22 @@ const validateMatches = (matches, teams, groups) => {
     }
 
     errors.push(...validateMatchScores(match));
+
+    if (match.played === true && match.winnerTeamId) {
+      if (match.decidedBy === 'penalties' && typeof match.homePenaltyScore === 'number' && typeof match.awayPenaltyScore === 'number') {
+        const penaltyWinnerTeamId = match.homePenaltyScore > match.awayPenaltyScore ? match.homeTeamId : match.awayTeamId;
+        if (match.winnerTeamId !== penaltyWinnerTeamId) {
+          errors.push(`Match ${matchId} winnerTeamId does not match the penalty score winner.`);
+        }
+      } else if (typeof match.homeScore === 'number' && typeof match.awayScore === 'number' && match.homeScore !== match.awayScore) {
+        const scoreWinnerTeamId = match.homeScore > match.awayScore ? match.homeTeamId : match.awayTeamId;
+        if (match.winnerTeamId !== scoreWinnerTeamId) {
+          errors.push(`Match ${matchId} winnerTeamId does not match the score winner.`);
+        }
+      } else if (match.decidedBy !== 'penalties') {
+        errors.push(`Match ${matchId} has winnerTeamId but no deterministic score or penalty winner.`);
+      }
+    }
   });
 
   errors.push(...validateGroupStageShape(matches, groups));

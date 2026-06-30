@@ -7,6 +7,7 @@ import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
 import { getKnockoutParticipantTeamIds, getSupportedTeamStatusDisplay } from './logic/knockoutParticipation';
 import { getFinishedMatchResultMessage, isFinishedMatchForDisplay } from './logic/matchDisplayStatus';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
+import { formatMatchScore, getKnockoutAdvancementLabel } from './logic/matchResult';
 import { getQualificationSummary } from './logic/qualificationStatus';
 import { getRecommendationReason } from './logic/recommendationCopy';
 import { getScheduleDisplayStateLabel, getScheduleMatchStatusLabel, groupScheduleMatchesByDisplayState, type ScheduleDisplayState } from './logic/scheduleDisplayState';
@@ -87,7 +88,7 @@ const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) =
 const isKnockoutStage = (match: Match): boolean => match.stage !== 'group';
 const scoreLabel = (match: Match): string => {
   if (!isFinishedMatchForDisplay(match)) return 'これから';
-  return match.homeScore === null || match.awayScore === null ? '結果確認' : `${match.homeScore} - ${match.awayScore}`;
+  return formatMatchScore(match) ?? '結果確認';
 };
 const matchStatusLabel = (match: Match): string => (isFinishedMatchForDisplay(match) ? '終了' : 'これから');
 const formatRecord = (row: StandingRow): string => `${row.won}勝 ${row.draw}分 ${row.lost}敗`;
@@ -806,6 +807,7 @@ function MatchCard({
 }) {
   const importance = 'importanceScore' in match ? match : null;
   const displayTags = importance ? (extraTags.length > 0 ? extraTags : importance.reasonTags).map(formatReasonTag) : [];
+  const advancementLabel = getKnockoutAdvancementLabel(match, teams);
   const scheduleStatus = scheduleDisplayState === 'finished'
     ? { score: scoreLabel(match), label: getScheduleDisplayStateLabel(scheduleDisplayState) }
     : scheduleDisplayState === 'started_awaiting_result'
@@ -833,6 +835,7 @@ function MatchCard({
           <p className="mb-2 text-xs text-slate-400">{formatMatchStage(match)}</p>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.homeTeamId)}</p>
           <p className="truncate text-sm font-semibold">{teamName(teams, match.awayTeamId)}</p>
+          {advancementLabel && <p className="mt-2 text-xs font-semibold text-emerald-200">{advancementLabel}</p>}
           {importance && !compact && <div className="mt-3 flex flex-wrap gap-2">{displayTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}</div>}
           {recommendationReason && <p className="mt-3 text-xs leading-5 text-slate-300">{recommendationReason}</p>}
           {showDetailHint && onSelect && <p className="mt-3 text-xs font-semibold text-cyan-200">試合詳細・カレンダー追加を見る</p>}
@@ -849,7 +852,7 @@ function MatchCard({
 function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, today, returnScreen, onBack }: { match: MatchWithImportance; teams: Team[]; preferences: UserPreferences; trackedTeamIds: string[]; today: Date; returnScreen: MainScreen; onBack: () => void }) {
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle');
   const viewingPoints = getViewingPoints(match, teams, preferences, trackedTeamIds);
-  const impactItems = getImpactItems(match);
+  const impactItems = getImpactItems(match, teams);
   const backLabel = returnScreen === 'schedule' ? '日程に戻る' : 'ホームに戻る';
   const recommendationReason = getRecommendationReason(match, teams, preferences);
 
@@ -911,6 +914,7 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, today, r
 const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences: UserPreferences, trackedTeamIds: string[]): string[] => {
   const points: string[] = [];
   const finishedResultMessage = getFinishedMatchResultMessage(match);
+  const advancementLabel = getKnockoutAdvancementLabel(match, teams);
 
   if (matchIncludesTeam(match, japanTeamId)) points.push('日本代表が関係する試合です。');
   if (preferences.mainFavoriteTeamId && matchIncludesTeam(match, preferences.mainFavoriteTeamId)) points.push('メインで応援する国が関係する試合です。');
@@ -926,15 +930,21 @@ const getViewingPoints = (match: MatchWithImportance, teams: Team[], preferences
   if (!isKnockoutStage(match) && isSameGroupAsTrackedTeam(match, teams, trackedTeamIds)) points.push('応援する国のグループに属するチームの試合です。');
   if (!isKnockoutStage(match)) points.push('グループステージの記録として確認できます。');
   if (finishedResultMessage) points.push(finishedResultMessage);
+  if (advancementLabel) points.push(advancementLabel);
   if (points.length === 0) points.push('次ラウンドの組み合わせを確認するうえで参考になる試合です。');
 
   return [...new Set(points)];
 };
 
-const getImpactItems = (match: Match): { label: string; text: string }[] => {
+const getImpactItems = (match: Match, teams: Team[]): { label: string; text: string }[] => {
   const finishedResultMessage = getFinishedMatchResultMessage(match);
   if (finishedResultMessage) {
-    return [{ label: match.played ? '終了済み' : '終了済み / 結果待ち', text: finishedResultMessage }];
+    const advancementLabel = getKnockoutAdvancementLabel(match, teams);
+
+    return [
+      { label: match.played ? '終了済み' : '終了済み / 結果待ち', text: finishedResultMessage },
+      ...(advancementLabel ? [{ label: '勝ち上がり', text: advancementLabel }] : []),
+    ];
   }
 
   if (isKnockoutStage(match)) {
