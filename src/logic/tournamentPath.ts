@@ -1,4 +1,4 @@
-import type { Group, Match, StandingRow } from '../types';
+import type { Group, Match, MatchDecision, StandingRow } from '../types';
 
 export type TournamentRound = 'round32' | 'round16' | 'quarterfinal' | 'semifinal' | 'third_place' | 'final';
 
@@ -32,6 +32,10 @@ export type BracketMatch = {
   kickoffTimeJST?: string;
   homeScore?: number | null;
   awayScore?: number | null;
+  homePenaltyScore?: number;
+  awayPenaltyScore?: number;
+  winnerTeamId?: string;
+  decidedBy?: MatchDecision;
   played?: boolean;
   note?: string;
 };
@@ -164,12 +168,18 @@ const resolveTeamSlot = (teamId: string): ResolvedBracketSlot => ({
 
 const getWinnerTeamId = (match: BracketMatch): string | null => {
   if (!match.played || match.homeScore == null || match.awayScore == null) return null;
+  if (match.winnerTeamId) return match.winnerTeamId;
   if (match.homeScore === match.awayScore) return null;
   return match.homeScore > match.awayScore ? match.home.teamId : match.away.teamId;
 };
 
 const getLoserTeamId = (match: BracketMatch): string | null => {
   if (!match.played || match.homeScore == null || match.awayScore == null) return null;
+  if (match.winnerTeamId) {
+    if (match.winnerTeamId === match.home.teamId) return match.away.teamId;
+    if (match.winnerTeamId === match.away.teamId) return match.home.teamId;
+    return null;
+  }
   if (match.homeScore === match.awayScore) return null;
   return match.homeScore < match.awayScore ? match.home.teamId : match.away.teamId;
 };
@@ -244,6 +254,10 @@ const attachMatchData = (match: BracketMatch, dataMatch: Match | undefined): Bra
   kickoffTimeJST: dataMatch?.kickoffTimeJST,
   homeScore: dataMatch?.homeScore,
   awayScore: dataMatch?.awayScore,
+  homePenaltyScore: dataMatch?.homePenaltyScore,
+  awayPenaltyScore: dataMatch?.awayPenaltyScore,
+  winnerTeamId: dataMatch?.winnerTeamId,
+  decidedBy: dataMatch?.decidedBy,
   played: dataMatch?.played ?? false,
 });
 

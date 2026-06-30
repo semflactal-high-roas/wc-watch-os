@@ -34,6 +34,28 @@ const round32Matches: Match[] = FIXED_R32_SLOT_DEFINITIONS.map((definition) =>
       date: '2026-06-29',
       kickoffTimeJST: '04:00',
     }
+    : definition.id === 'R32-03'
+      ? {
+        homeScore: 1,
+        awayScore: 1,
+        homePenaltyScore: 3,
+        awayPenaltyScore: 4,
+        winnerTeamId: 'PAR',
+        decidedBy: 'penalties',
+        played: true,
+        kickoffTimeJST: '05:30',
+      }
+      : definition.id === 'R32-04'
+        ? {
+          homeScore: 1,
+          awayScore: 1,
+          homePenaltyScore: 2,
+          awayPenaltyScore: 3,
+          winnerTeamId: 'MAR',
+          decidedBy: 'penalties',
+          played: true,
+          kickoffTimeJST: '10:00',
+        }
     : {}),
 );
 
@@ -124,11 +146,62 @@ describe('buildTournamentTree', () => {
       relation: 'winner',
     });
     expect(r16Canada.away).toMatchObject({
-      teamId: null,
-      isProvisional: true,
+      teamId: 'MAR',
+      isProvisional: false,
+      isUnresolved: false,
       sourceMatchId: 'R32-04',
       relation: 'winner',
-      candidateTeamIds: ['NED', 'MAR'],
+      candidateTeamIds: ['MAR'],
+    });
+  });
+
+  it('reflects R32 penalty shootout winners into R16', () => {
+    const { rounds } = buildTree();
+    const r32Paraguay = findMatch(rounds.round32, 'R32-03');
+    const r32Morocco = findMatch(rounds.round32, 'R32-04');
+    const r16Paraguay = findMatch(rounds.round16, 'R16-02');
+    const r16Morocco = findMatch(rounds.round16, 'R16-01');
+
+    expect(r32Paraguay).toMatchObject({
+      played: true,
+      homeScore: 1,
+      awayScore: 1,
+      homePenaltyScore: 3,
+      awayPenaltyScore: 4,
+      winnerTeamId: 'PAR',
+      decidedBy: 'penalties',
+    });
+    expect(r16Paraguay.home).toMatchObject({
+      teamId: 'PAR',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-03',
+      relation: 'winner',
+    });
+    expect(r16Paraguay.away).toMatchObject({
+      teamId: null,
+      isProvisional: true,
+      sourceMatchId: 'R32-06',
+      relation: 'winner',
+      candidateTeamIds: ['FRA', 'SWE'],
+    });
+
+    expect(r32Morocco).toMatchObject({
+      played: true,
+      homeScore: 1,
+      awayScore: 1,
+      homePenaltyScore: 2,
+      awayPenaltyScore: 3,
+      winnerTeamId: 'MAR',
+      decidedBy: 'penalties',
+    });
+    expect(r16Morocco.home.teamId).toBe('CAN');
+    expect(r16Morocco.away).toMatchObject({
+      teamId: 'MAR',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-04',
+      relation: 'winner',
     });
   });
 

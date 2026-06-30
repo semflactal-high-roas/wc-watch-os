@@ -15,12 +15,18 @@ export type MatchStage =
   | 'third_place'
   | 'final';
 
+export type MatchDecision = 'regular' | 'extra_time' | 'penalties';
+
 export type Match = {
   id: string;
   homeTeamId: string;
   awayTeamId: string;
   homeScore: number | null;
   awayScore: number | null;
+  homePenaltyScore?: number;
+  awayPenaltyScore?: number;
+  winnerTeamId?: string;
+  decidedBy?: MatchDecision;
   played: boolean;
   date: string;
   kickoffTimeJST: string;

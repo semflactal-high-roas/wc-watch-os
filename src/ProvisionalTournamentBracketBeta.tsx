@@ -7,6 +7,7 @@ import {
   type TournamentBlockId,
   type TournamentRound,
 } from './logic/tournamentPath';
+import { formatMatchScore } from './logic/matchResult';
 import type { AppData, StandingRow, Team } from './types';
 
 type GroupStanding = { groupId: string; rows: StandingRow[] };
@@ -54,12 +55,28 @@ const roundLabel = (round: TournamentRound): string => {
 };
 
 const matchScoreText = (match: BracketMatch): string | null => {
+  return formatMatchScore(match, { compact: true });
+};
+
+const bracketWinnerTeamId = (match: BracketMatch): string | null => {
   if (!match.played || match.homeScore == null || match.awayScore == null) return null;
-  return `${match.homeScore}-${match.awayScore}`;
+  if (match.winnerTeamId) return match.winnerTeamId;
+  if (match.homeScore > match.awayScore) return match.home.teamId;
+  if (match.homeScore < match.awayScore) return match.away.teamId;
+  return null;
+};
+
+const advancementText = (match: BracketMatch, teams: Team[]): string | null => {
+  const winnerTeamId = bracketWinnerTeamId(match);
+  if (!winnerTeamId) return null;
+  if (match.round === 'final') return `${teamName(teams, winnerTeamId)} が優勝`;
+  if (match.round === 'round32') return `${teamName(teams, winnerTeamId)} がR16進出`;
+  return `${teamName(teams, winnerTeamId)} が次ラウンド進出`;
 };
 
 function MatchCard({ match, teams }: { match: BracketMatch; teams: Team[] }) {
   const scoreText = matchScoreText(match);
+  const winnerText = advancementText(match, teams);
 
   return (
     <article className={`space-y-2 rounded-xl border p-3 ${match.isFavoritePath ? 'border-cyan-300 bg-cyan-300/10 ring-1 ring-cyan-300/40' : 'border-slate-700 bg-slate-800'}`}>
@@ -68,6 +85,7 @@ function MatchCard({ match, teams }: { match: BracketMatch; teams: Team[] }) {
         <div className="flex flex-wrap gap-1">
           {match.date && match.kickoffTimeJST && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-slate-300">{match.date} {match.kickoffTimeJST} JST</span>}
           {scoreText && <span className="rounded-full bg-emerald-300 px-2 py-1 text-xs font-bold text-slate-950">終了 {scoreText}</span>}
+          {winnerText && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">{winnerText}</span>}
           {match.isFavoritePath && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">推し国の接続</span>}
           {!match.isOfficialSlotConfirmed && <span className="rounded-full bg-amber-300/15 px-2 py-1 text-xs font-bold text-amber-200">要確認</span>}
         </div>
