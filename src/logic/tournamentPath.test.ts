@@ -25,38 +25,73 @@ const round32Match = (
   ...overrides,
 });
 
+const latestR32Results: Record<string, Partial<Match>> = {
+  'R32-01': {
+    homeScore: 0,
+    awayScore: 1,
+    played: true,
+    date: '2026-06-29',
+    kickoffTimeJST: '04:00',
+  },
+  'R32-02': {
+    homeScore: 2,
+    awayScore: 1,
+    played: true,
+  },
+  'R32-03': {
+    homeScore: 1,
+    awayScore: 1,
+    homePenaltyScore: 3,
+    awayPenaltyScore: 4,
+    winnerTeamId: 'PAR',
+    decidedBy: 'penalties',
+    played: true,
+    kickoffTimeJST: '05:30',
+  },
+  'R32-04': {
+    homeScore: 1,
+    awayScore: 1,
+    homePenaltyScore: 2,
+    awayPenaltyScore: 3,
+    winnerTeamId: 'MAR',
+    decidedBy: 'penalties',
+    played: true,
+    kickoffTimeJST: '10:00',
+  },
+  'R32-05': {
+    homeScore: 1,
+    awayScore: 2,
+    played: true,
+  },
+  'R32-06': {
+    homeScore: 3,
+    awayScore: 0,
+    played: true,
+  },
+  'R32-07': {
+    homeScore: 2,
+    awayScore: 0,
+    played: true,
+  },
+  'R32-08': {
+    homeScore: 2,
+    awayScore: 1,
+    played: true,
+  },
+  'R32-09': {
+    homeScore: 3,
+    awayScore: 2,
+    played: true,
+  },
+  'R32-10': {
+    homeScore: 2,
+    awayScore: 0,
+    played: true,
+  },
+};
+
 const round32Matches: Match[] = FIXED_R32_SLOT_DEFINITIONS.map((definition) =>
-  round32Match(definition.id, definition.homeTeamId, definition.awayTeamId, definition.id === 'R32-01'
-    ? {
-      homeScore: 0,
-      awayScore: 1,
-      played: true,
-      date: '2026-06-29',
-      kickoffTimeJST: '04:00',
-    }
-    : definition.id === 'R32-03'
-      ? {
-        homeScore: 1,
-        awayScore: 1,
-        homePenaltyScore: 3,
-        awayPenaltyScore: 4,
-        winnerTeamId: 'PAR',
-        decidedBy: 'penalties',
-        played: true,
-        kickoffTimeJST: '05:30',
-      }
-      : definition.id === 'R32-04'
-        ? {
-          homeScore: 1,
-          awayScore: 1,
-          homePenaltyScore: 2,
-          awayPenaltyScore: 3,
-          winnerTeamId: 'MAR',
-          decidedBy: 'penalties',
-          played: true,
-          kickoffTimeJST: '10:00',
-        }
-    : {}),
+  round32Match(definition.id, definition.homeTeamId, definition.awayTeamId, latestR32Results[definition.id] ?? {}),
 );
 
 const buildTree = (mainFavoriteTeamId?: string) =>
@@ -179,11 +214,12 @@ describe('buildTournamentTree', () => {
       relation: 'winner',
     });
     expect(r16Paraguay.away).toMatchObject({
-      teamId: null,
-      isProvisional: true,
+      teamId: 'FRA',
+      isProvisional: false,
+      isUnresolved: false,
       sourceMatchId: 'R32-06',
       relation: 'winner',
-      candidateTeamIds: ['FRA', 'SWE'],
+      candidateTeamIds: ['FRA'],
     });
 
     expect(r32Morocco).toMatchObject({
@@ -201,6 +237,60 @@ describe('buildTournamentTree', () => {
       isProvisional: false,
       isUnresolved: false,
       sourceMatchId: 'R32-04',
+      relation: 'winner',
+    });
+  });
+
+  it('reflects latest regular-time R32 winners into R16', () => {
+    const { rounds } = buildTree();
+
+    expect(findMatch(rounds.round16, 'R16-02').away).toMatchObject({
+      teamId: 'FRA',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-06',
+      relation: 'winner',
+    });
+    expect(findMatch(rounds.round16, 'R16-03').home).toMatchObject({
+      teamId: 'BRA',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-02',
+      relation: 'winner',
+    });
+    expect(findMatch(rounds.round16, 'R16-03').away).toMatchObject({
+      teamId: 'NOR',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-05',
+      relation: 'winner',
+    });
+    expect(findMatch(rounds.round16, 'R16-04').home).toMatchObject({
+      teamId: 'MEX',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-07',
+      relation: 'winner',
+    });
+    expect(findMatch(rounds.round16, 'R16-04').away).toMatchObject({
+      teamId: 'ENG',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-08',
+      relation: 'winner',
+    });
+    expect(findMatch(rounds.round16, 'R16-06').home).toMatchObject({
+      teamId: 'USA',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-10',
+      relation: 'winner',
+    });
+    expect(findMatch(rounds.round16, 'R16-06').away).toMatchObject({
+      teamId: 'BEL',
+      isProvisional: false,
+      isUnresolved: false,
+      sourceMatchId: 'R32-09',
       relation: 'winner',
     });
   });
@@ -241,28 +331,27 @@ describe('buildTournamentTree', () => {
     ]);
   });
 
-  it('keeps unplayed R32 winner slots connected into R16', () => {
+  it('keeps unplayed R32 winner slots connected into R16 without inventing winners', () => {
     const { rounds } = buildTree();
-    const r16JapanPath = findMatch(rounds.round16, 'R16-03');
 
-    expect(r16JapanPath.home).toMatchObject({
+    expect(findMatch(rounds.round16, 'R16-05').home).toMatchObject({
       teamId: null,
       isProvisional: true,
-      sourceMatchId: 'R32-02',
+      sourceMatchId: 'R32-12',
       relation: 'winner',
-      candidateTeamIds: ['BRA', 'JPN'],
+      candidateTeamIds: ['POR', 'CRO'],
     });
-    expect(r16JapanPath.away).toMatchObject({
+    expect(findMatch(rounds.round16, 'R16-07').away).toMatchObject({
       teamId: null,
       isProvisional: true,
-      sourceMatchId: 'R32-05',
+      sourceMatchId: 'R32-14',
       relation: 'winner',
-      candidateTeamIds: ['CIV', 'NOR'],
+      candidateTeamIds: ['AUS', 'EGY'],
     });
   });
 
-  it('preserves favorite path highlighting through the fixed bracket', () => {
-    const tree = buildTree('JPN');
+  it('preserves favorite path highlighting through the fixed bracket for an advancing team', () => {
+    const tree = buildTree('BRA');
 
     expect(tree.favoritePath?.matchIds).toEqual(expect.arrayContaining([
       'R32-02',
@@ -273,6 +362,14 @@ describe('buildTournamentTree', () => {
       'F-01',
     ]));
     expect(findMatch(tree.rounds.round32, 'R32-02').isFavoritePath).toBe(true);
+  });
+
+  it('stops favorite path highlighting when the favorite is eliminated', () => {
+    const tree = buildTree('JPN');
+
+    expect(tree.favoritePath?.matchIds).toEqual(['R32-02']);
+    expect(findMatch(tree.rounds.round32, 'R32-02').isFavoritePath).toBe(true);
+    expect(findMatch(tree.rounds.round16, 'R16-03').isFavoritePath).toBe(false);
   });
 
   it('does not highlight a path when the favorite is absent from the bracket', () => {
