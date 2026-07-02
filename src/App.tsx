@@ -5,6 +5,7 @@ import { formatJstDateWithWeekday, formatMatchDateTime } from './logic/dateTimeD
 import { getHomeMatchSections, isUpcomingMatch, type HomeMatchSections } from './logic/homeMatchSections';
 import { createMatchIcsEvent, downloadIcsFile } from './logic/ics';
 import { getKnockoutParticipantTeamIds, getSupportedTeamStatusDisplay } from './logic/knockoutParticipation';
+import { mergeGeneratedKnockoutScheduleMatches } from './logic/knockoutScheduleMatches';
 import { getFinishedMatchResultMessage, isFinishedMatchForDisplay } from './logic/matchDisplayStatus';
 import { rankMatchesByImportance, type MatchWithImportance } from './logic/matchImportance';
 import { formatMatchScore, getKnockoutAdvancementLabel } from './logic/matchResult';
@@ -83,6 +84,12 @@ const formatTeamName = (teams: Team[], teamId: string): string => {
 };
 
 const teamName = formatTeamName;
+const matchTeamName = (teams: Team[], match: Match, side: 'home' | 'away'): string => {
+  const displayNames = match as Match & { homeDisplayName?: string; awayDisplayName?: string };
+  if (side === 'home' && displayNames.homeDisplayName) return displayNames.homeDisplayName;
+  if (side === 'away' && displayNames.awayDisplayName) return displayNames.awayDisplayName;
+  return teamName(teams, side === 'home' ? match.homeTeamId : match.awayTeamId);
+};
 const matchIncludesTeam = (match: Match, teamId: string): boolean => match.homeTeamId === teamId || match.awayTeamId === teamId;
 const teamGroup = (teams: Team[], teamId: string): string => teams.find((team) => team.id === teamId)?.group ?? '';
 const isKnockoutStage = (match: Match): boolean => match.stage !== 'group';
@@ -174,10 +181,15 @@ function App() {
     return trackedTeamIds.map((teamId) => getQualificationSummary(teamId, data.teams, data.groups, standings, data.matches, thirdPlace));
   }, [data, trackedTeamIds, standings, thirdPlace]);
 
+  const displayMatches = useMemo(() => {
+    if (!data) return [];
+    return mergeGeneratedKnockoutScheduleMatches(data.matches, data.teams);
+  }, [data]);
+
   const rankedMatches = useMemo(() => {
     if (!data) return [];
-    return rankMatchesByImportance(data.matches, data.teams, data.groups, preferences, today);
-  }, [data, preferences, today]);
+    return rankMatchesByImportance(displayMatches, data.teams, data.groups, preferences, today);
+  }, [data, displayMatches, preferences, today]);
 
   const japanMatches = useMemo(
     () => sortMatchesByDate(rankedMatches.filter((match) => matchIncludesTeam(match, japanTeamId) && isUpcomingMatch(match, today))),
@@ -238,6 +250,7 @@ function App() {
         {activeScreen === 'schedule' && (
           <ScheduleScreen
             data={data}
+            matches={displayMatches}
             preferences={preferences}
             rankedMatches={rankedMatches}
             today={today}
@@ -568,6 +581,11 @@ function SupportedTeamStatusLine({
       ? nextMatch.awayTeamId
       : nextMatch.homeTeamId
     : null;
+  const opponentName = nextMatch
+    ? nextMatch.homeTeamId === teamId
+      ? matchTeamName(teams, nextMatch, 'away')
+      : matchTeamName(teams, nextMatch, 'home')
+    : '';
   const { position, statusLabel } = getSupportedTeamStatusDisplay({
     teamId,
     summary,
@@ -583,7 +601,7 @@ function SupportedTeamStatusLine({
       <p className="text-xs text-slate-300">{position}</p>
       {nextMatch && opponentId ? (
         <button type="button" onClick={() => onMatchSelect(nextMatch.id)} className="w-full rounded-lg bg-slate-950 px-3 py-2 text-left text-xs font-semibold text-cyan-200">
-          次戦 {formatViewingDecisionTime(nextMatch, now)} / {formatMatchStage(nextMatch)} vs {teamName(teams, opponentId)}
+          次戦 {formatViewingDecisionTime(nextMatch, now)} / {formatMatchStage(nextMatch)} vs {opponentName}
         </button>
       ) : (
         <p className="rounded-lg bg-slate-950 px-3 py-2 text-xs text-slate-400">次戦は未確定です。</p>
@@ -671,11 +689,11 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function ScheduleScreen({ data, preferences, rankedMatches, today, onMatchSelect }: { data: AppData; preferences: UserPreferences; rankedMatches: MatchWithImportance[]; today: Date; onMatchSelect: (matchId: string) => void }) {
+function ScheduleScreen({ data, matches, preferences, rankedMatches, today, onMatchSelect }: { data: AppData; matches: Match[]; preferences: UserPreferences; rankedMatches: MatchWithImportance[]; today: Date; onMatchSelect: (matchId: string) => void }) {
   const [activeFilterId, setActiveFilterId] = useState<ScheduleFilterId>('today_next');
   const importanceByMatchId = new Map(rankedMatches.map((match) => [match.id, match]));
-  const filterOptions = useMemo(() => getScheduleFilterOptions(data.matches, data.teams, preferences, today), [data.matches, data.teams, preferences, today]);
-  const filterResult = useMemo(() => filterScheduleMatches(data.matches, data.teams, preferences, activeFilterId, today), [data.matches, data.teams, preferences, activeFilterId, today]);
+  const filterOptions = useMemo(() => getScheduleFilterOptions(matches, data.teams, preferences, today), [matches, data.teams, preferences, today]);
+  const filterResult = useMemo(() => filterScheduleMatches(matches, data.teams, preferences, activeFilterId, today), [matches, data.teams, preferences, activeFilterId, today]);
   const matchGroups = useMemo(() => groupScheduleMatchesByDisplayState(filterResult.matches, today), [filterResult.matches, today]);
   const emptyMessage = filterResult.message ?? 'この条件に合う試合はありません';
 
@@ -684,7 +702,7 @@ function ScheduleScreen({ data, preferences, rankedMatches, today, onMatchSelect
       <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">試合一覧</h2>
-          <p className="text-sm leading-6 text-slate-300">見たい切り口を選んで、全{data.matches.length}試合から必要な試合だけを絞り込めます。</p>
+          <p className="text-sm leading-6 text-slate-300">見たい切り口を選んで、全{matches.length}試合から必要な試合だけを絞り込めます。</p>
           <p className="text-xs leading-5 text-cyan-200">日付と時刻はすべて日本時間で表示しています。</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -833,8 +851,8 @@ function MatchCard({
           <p className="text-xs font-semibold text-slate-400">{formatMatchDateTime(match)}</p>
           <TimeOfDayInfo match={match} />
           <p className="mb-2 text-xs text-slate-400">{formatMatchStage(match)}</p>
-          <p className="truncate text-sm font-semibold">{teamName(teams, match.homeTeamId)}</p>
-          <p className="truncate text-sm font-semibold">{teamName(teams, match.awayTeamId)}</p>
+          <p className="truncate text-sm font-semibold">{matchTeamName(teams, match, 'home')}</p>
+          <p className="truncate text-sm font-semibold">{matchTeamName(teams, match, 'away')}</p>
           {advancementLabel && <p className="mt-2 text-xs font-semibold text-emerald-200">{advancementLabel}</p>}
           {importance && !compact && <div className="mt-3 flex flex-wrap gap-2">{displayTags.map((tag) => <span key={tag} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{tag}</span>)}</div>}
           {recommendationReason && <p className="mt-3 text-xs leading-5 text-slate-300">{recommendationReason}</p>}
@@ -879,7 +897,7 @@ function MatchDetailScreen({ match, teams, preferences, trackedTeamIds, today, r
       <section className="space-y-4 rounded-2xl bg-slate-900 p-4 shadow-lg">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">Match Detail</p>
-          <h2 className="text-2xl font-bold leading-tight">{teamName(teams, match.homeTeamId)} vs {teamName(teams, match.awayTeamId)}</h2>
+          <h2 className="text-2xl font-bold leading-tight">{matchTeamName(teams, match, 'home')} vs {matchTeamName(teams, match, 'away')}</h2>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <Metric label="日付" value={formatJstDateWithWeekday(match.date)} />
