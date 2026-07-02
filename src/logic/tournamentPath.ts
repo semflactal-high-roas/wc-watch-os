@@ -100,6 +100,12 @@ type WinnerRoundDefinition = {
   awayMatchId: string;
 };
 
+type KnockoutScheduleDefinition = {
+  id: string;
+  date: string;
+  kickoffTimeJST: string;
+};
+
 const teamSlot = (teamId: string): BracketSlot => ({ type: 'team', teamId });
 const winnerSlot = (matchId: string): BracketSlot => ({ type: 'winner', matchId });
 const loserSlot = (matchId: string): BracketSlot => ({ type: 'loser', matchId });
@@ -157,6 +163,27 @@ export const FIXED_FINAL_CONNECTION: WinnerRoundDefinition = {
   homeMatchId: 'SF-01',
   awayMatchId: 'SF-02',
 };
+
+export const FIXED_KNOCKOUT_SCHEDULE_DEFINITIONS: KnockoutScheduleDefinition[] = [
+  { id: 'R16-01', date: '2026-07-05', kickoffTimeJST: '02:00' },
+  { id: 'R16-02', date: '2026-07-05', kickoffTimeJST: '06:00' },
+  { id: 'R16-03', date: '2026-07-06', kickoffTimeJST: '05:00' },
+  { id: 'R16-04', date: '2026-07-06', kickoffTimeJST: '09:00' },
+  { id: 'R16-05', date: '2026-07-07', kickoffTimeJST: '04:00' },
+  { id: 'R16-06', date: '2026-07-07', kickoffTimeJST: '09:00' },
+  { id: 'R16-07', date: '2026-07-08', kickoffTimeJST: '01:00' },
+  { id: 'R16-08', date: '2026-07-08', kickoffTimeJST: '05:00' },
+  { id: 'QF-01', date: '2026-07-10', kickoffTimeJST: '05:00' },
+  { id: 'QF-02', date: '2026-07-11', kickoffTimeJST: '04:00' },
+  { id: 'QF-03', date: '2026-07-12', kickoffTimeJST: '06:00' },
+  { id: 'QF-04', date: '2026-07-12', kickoffTimeJST: '10:00' },
+  { id: 'SF-01', date: '2026-07-15', kickoffTimeJST: '04:00' },
+  { id: 'SF-02', date: '2026-07-16', kickoffTimeJST: '04:00' },
+  { id: '3P-01', date: '2026-07-19', kickoffTimeJST: '06:00' },
+  { id: 'F-01', date: '2026-07-20', kickoffTimeJST: '04:00' },
+];
+
+const knockoutScheduleById = new Map(FIXED_KNOCKOUT_SCHEDULE_DEFINITIONS.map((schedule) => [schedule.id, schedule]));
 
 const resolveTeamSlot = (teamId: string): ResolvedBracketSlot => ({
   sourceLabel: '',
@@ -261,6 +288,17 @@ const attachMatchData = (match: BracketMatch, dataMatch: Match | undefined): Bra
   played: dataMatch?.played ?? false,
 });
 
+const attachKnockoutSchedule = (match: BracketMatch): BracketMatch => {
+  const schedule = knockoutScheduleById.get(match.id);
+  if (!schedule) return match;
+
+  return {
+    ...match,
+    date: schedule.date,
+    kickoffTimeJST: schedule.kickoffTimeJST,
+  };
+};
+
 const buildRound32 = (matches: Match[], mainFavoriteTeamId: string): BracketMatch[] => {
   const dataById = new Map(matches.map((match) => [match.id, match]));
 
@@ -298,7 +336,7 @@ const buildWinnerRound = (
     const home = resolveSlot(homeSlot, sourceById);
     const away = resolveSlot(awaySlot, sourceById);
 
-    return {
+    return attachKnockoutSchedule({
       id: definition.id,
       round,
       homeSlot,
@@ -310,7 +348,7 @@ const buildWinnerRound = (
         slotCanContainFavorite(homeSlot, sourceById, mainFavoriteTeamId) ||
         slotCanContainFavorite(awaySlot, sourceById, mainFavoriteTeamId),
       played: false,
-    };
+    });
   });
 };
 
@@ -325,7 +363,7 @@ const buildThirdPlaceRound = (
   const home = resolveSlot(homeSlot, sourceById);
   const away = resolveSlot(awaySlot, sourceById);
 
-  return [{
+  return [attachKnockoutSchedule({
     id: definition.id,
     round: 'third_place',
     homeSlot,
@@ -337,7 +375,7 @@ const buildThirdPlaceRound = (
       slotCanContainFavorite(homeSlot, sourceById, mainFavoriteTeamId) ||
       slotCanContainFavorite(awaySlot, sourceById, mainFavoriteTeamId),
     played: false,
-  }];
+  })];
 };
 
 const winnerMatchIds = (match: BracketMatch): string[] =>

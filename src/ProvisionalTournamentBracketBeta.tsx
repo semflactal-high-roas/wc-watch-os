@@ -58,6 +58,11 @@ const matchScoreText = (match: BracketMatch): string | null => {
   return formatMatchScore(match, { compact: true });
 };
 
+const matchScheduleText = (match: BracketMatch): string | null => {
+  if (!match.date || !match.kickoffTimeJST) return null;
+  return `${match.date} ${match.kickoffTimeJST} JST`;
+};
+
 const bracketWinnerTeamId = (match: BracketMatch): string | null => {
   if (!match.played || match.homeScore == null || match.awayScore == null) return null;
   if (match.winnerTeamId) return match.winnerTeamId;
@@ -76,6 +81,7 @@ const advancementText = (match: BracketMatch, teams: Team[]): string | null => {
 
 function MatchCard({ match, teams }: { match: BracketMatch; teams: Team[] }) {
   const scoreText = matchScoreText(match);
+  const scheduleText = matchScheduleText(match);
   const winnerText = advancementText(match, teams);
 
   return (
@@ -83,7 +89,7 @@ function MatchCard({ match, teams }: { match: BracketMatch; teams: Team[] }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-bold text-violet-200">Match {match.id}</p>
         <div className="flex flex-wrap gap-1">
-          {match.date && match.kickoffTimeJST && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-slate-300">{match.date} {match.kickoffTimeJST} JST</span>}
+          {scheduleText && <span className="rounded-full bg-slate-950 px-2 py-1 text-xs font-bold text-slate-300">{scheduleText}</span>}
           {scoreText && <span className="rounded-full bg-emerald-300 px-2 py-1 text-xs font-bold text-slate-950">終了 {scoreText}</span>}
           {winnerText && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">{winnerText}</span>}
           {match.isFavoritePath && <span className="rounded-full bg-cyan-300 px-2 py-1 text-xs font-bold text-slate-950">推し国の接続</span>}
@@ -221,6 +227,7 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
                   {roundLabel(match.round)}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-cyan-50">Match {match.id}</p>
+                {matchScheduleText(match) && <p className="mt-1 text-xs font-semibold text-cyan-100">{matchScheduleText(match)}</p>}
               </div>
             ))}
             <p className="text-xs leading-5 text-slate-400">未消化試合の勝敗を断定する表示ではありません。</p>
@@ -252,15 +259,18 @@ export default function ProvisionalTournamentBracketBeta({ data, standings, main
         {tree.semifinalConnections.map((connection) => (
           <div key={connection.match.id} className={`rounded-xl border px-3 py-3 ${connection.isFavoriteConnection ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-800'}`}>
             <p className="text-xs font-bold text-violet-200">準決勝 Match {connection.match.id}</p>
+            {matchScheduleText(connection.match) && <p className="mt-1 text-xs font-semibold text-slate-300">{matchScheduleText(connection.match)}</p>}
             <p className="mt-1 text-sm font-semibold">ブロック{connection.blockIds[0]}の勝者 vs ブロック{connection.blockIds[1]}の勝者</p>
           </div>
         ))}
         <div className={`rounded-xl border px-3 py-3 ${tree.thirdPlaceConnection.isFavoritePath ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-800'}`}>
           <p className="text-xs font-bold text-violet-200">3位決定戦 Match {tree.thirdPlaceConnection.id}</p>
+          {matchScheduleText(tree.thirdPlaceConnection) && <p className="mt-1 text-xs font-semibold text-slate-300">{matchScheduleText(tree.thirdPlaceConnection)}</p>}
           <p className="mt-1 text-sm font-semibold">準決勝 {tree.semifinalConnections[0]?.match.id} の敗者 vs 準決勝 {tree.semifinalConnections[1]?.match.id} の敗者</p>
         </div>
         <div className={`rounded-xl border px-3 py-3 ${tree.finalConnection.isFavoritePath ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-800'}`}>
           <p className="text-xs font-bold text-violet-200">決勝 Match {tree.finalConnection.id}</p>
+          {matchScheduleText(tree.finalConnection) && <p className="mt-1 text-xs font-semibold text-slate-300">{matchScheduleText(tree.finalConnection)}</p>}
           <p className="mt-1 text-sm font-semibold">準決勝 {tree.semifinalConnections[0]?.match.id} の勝者 vs 準決勝 {tree.semifinalConnections[1]?.match.id} の勝者</p>
         </div>
         {favoriteBlock && (

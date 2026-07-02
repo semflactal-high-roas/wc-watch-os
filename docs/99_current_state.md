@@ -27,7 +27,7 @@
 | Vite + React + TypeScript | 実装済み | `package.json`、`vite.config.ts`、`src/main.tsx`、`src/App.tsx` で確認 |
 | スマホ向けUI | 実装済み | `src/App.tsx` の `max-w-md`、固定ボトムナビ、カードUIで確認。実端末QA結果は要確認 |
 | メインタブ構成 | 実装済み | 下部ナビを「ホーム / 日程 / 順位 / トーナメント」の4タブに整理。設定はHome内導線から開く |
-| 試合データ | 実装済み | `public/data/matches.json` はグループ72試合＋R32 16試合の計88件。`public/data/groups.json` はGroups A-Lの12組、`teams.json` は48件 |
+| 試合データ | 実装済み | `public/data/matches.json` はグループ72試合＋R32 16試合の計88件。R16以降16試合はTBD疑似チームを追加せず、固定接続と日本時間日程からUI用に生成表示する。`public/data/groups.json` はGroups A-Lの12組、`teams.json` は48件 |
 | 日本時間・曜日つき表示 | 実装済み | `src/logic/dateTimeDisplay.ts` と `src/App.tsx` で確認 |
 | 時間帯ラベル | 実装済み | `src/logic/timeOfDayLabel.ts` と試合カード・詳細での利用を確認 |
 | 日本代表＋推し国設定 | 実装済み | 日本代表は固定追跡対象。`src/App.tsx` の設定画面でメイン・追加の応援国を設定可能 |
@@ -36,7 +36,7 @@
 | 重要度S/A/B/C | 一部実装 | `src/logic/matchImportance.ts` でS/A/B/Cを決定論的に算出。主要UIでは `高 / 中 / 低` 表示へ変換している箇所あり |
 | グループ順位表 | 実装済み | `src/logic/standings.ts` と `src/App.tsx` の順位表示を確認 |
 | 3位通過ライン | 実装済み | `src/logic/thirdPlaceRanking.ts`、`thirdPlaceLine.ts` と表示を確認。詳細タイブレークは未反映 |
-| 決勝トーナメント表 | 実装済み | 専用の「トーナメント」画面でFIX済みR32カード、R16〜Finalの勝者枠接続、3位決定戦の敗者枠接続を表示。CanadaはSouth Africa戦の勝者としてR16-01へ反映。未消化試合の勝敗予想は行わない |
+| 決勝トーナメント表 | 実装済み | 専用の「トーナメント」画面でFIX済みR32カード、R16〜Finalの勝者枠接続、3位決定戦の敗者枠接続、日本時間の日程を表示。終了済みR32の勝者をR16へ反映し、未消化試合の勝敗予想は行わない |
 | 試合詳細 | 実装済み | `src/App.tsx` のMatch Detail画面を確認 |
 | ICSカレンダー追加 | 実装済み | `src/logic/ics.ts` とMatch Detailの導線を確認 |
 | 共有文コピー | 実装済み | `src/logic/shareCopy.ts` とHome・Match Detailの導線を確認 |
@@ -53,8 +53,8 @@
 - `docs/14_manual_qa_checklist.md` と `docs/15_beta_release_checklist.md` のチェック結果はrepo内で未記録。
 - `npm run validate` scriptは存在しない。現在のデータ検証scriptは `npm run validate:data`。
 - X共有カードのCanvas/PNG生成は未実装。共有文コピーは実装済み。
-- R16以降の未消化カードは、存在しないTBDチームを作らず、前ラウンドの勝者枠・敗者枠として表示している。
-- 全104試合のうち、現時点でrepoに投入済みなのはグループ72試合＋R32 16試合。
+- R16以降の未消化カードは、存在しないTBDチームを作らず、前ラウンドの勝者枠・敗者枠として表示している。Schedule / Home でも固定接続から生成した日程カードとして表示する。
+- 全104試合のうち、`matches.json` に投入済みなのはグループ72試合＋R32 16試合。R16以降16試合は固定接続からUI用に生成する。
 - 外部API連携と結果の自動更新は未実装。結果更新は当面手動。
 - 詳細タイブレーク、直接対決、フェアプレーポイント、抽選条件は未反映。
 - FIFA公式データの再確認と、更新後の公開画面確認は手動運用。

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Match } from '../types';
 import {
   buildTournamentTree,
+  FIXED_KNOCKOUT_SCHEDULE_DEFINITIONS,
   FIXED_R32_SLOT_DEFINITIONS,
   type BracketMatch,
   type TournamentRound,
@@ -321,6 +322,18 @@ describe('buildTournamentTree', () => {
     expect(connections(rounds.final)).toEqual([
       ['F-01', 'SF-01', 'SF-02'],
     ]);
+  });
+
+  it('attaches fixed JST kickoff schedules to R16 and later rounds', () => {
+    const { rounds } = buildTree();
+    const matchById = new Map(Object.values(rounds).flat().map((match) => [match.id, match]));
+
+    for (const schedule of FIXED_KNOCKOUT_SCHEDULE_DEFINITIONS) {
+      expect(matchById.get(schedule.id)).toMatchObject({
+        date: schedule.date,
+        kickoffTimeJST: schedule.kickoffTimeJST,
+      });
+    }
   });
 
   it('connects the third-place playoff from semifinal losers', () => {

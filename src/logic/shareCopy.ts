@@ -20,8 +20,16 @@ export type MatchShareOptions = {
   recommendationReason?: string;
 };
 
+type MatchWithDisplayNames = Match & {
+  homeDisplayName?: string;
+  awayDisplayName?: string;
+};
+
 export const buildMatchShareText = (match: Match, teams: Team[], options: MatchShareOptions = {}): string => {
-  const matchup = `${formatTeamName(teams, match.homeTeamId)} vs ${formatTeamName(teams, match.awayTeamId)}`;
+  const displayMatch = match as MatchWithDisplayNames;
+  const homeTeam = displayMatch.homeDisplayName ?? formatTeamName(teams, match.homeTeamId);
+  const awayTeam = displayMatch.awayDisplayName ?? formatTeamName(teams, match.awayTeamId);
+  const matchup = `${homeTeam} vs ${awayTeam}`;
   const kickoffLabel = formatKickoffWithTimeOfDay(match.kickoffTimeJST);
   const importance = options.importanceLabel ? ` / 重要度 ${options.importanceLabel}` : '';
 

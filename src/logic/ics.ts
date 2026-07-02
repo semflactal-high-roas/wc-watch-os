@@ -6,6 +6,11 @@ type MatchIcsOptions = {
   reasonTags?: string[];
 };
 
+type MatchWithDisplayNames = Match & {
+  homeDisplayName?: string;
+  awayDisplayName?: string;
+};
+
 const teamName = (teams: Team[], teamId: string): string => {
   return teams.find((team) => team.id === teamId)?.name ?? teamId;
 };
@@ -48,8 +53,9 @@ const foldIcsLine = (line: string): string => {
 const makeLine = (key: string, value: string): string => foldIcsLine(`${key}:${escapeIcsText(value)}`);
 
 export const createMatchIcsEvent = (match: Match, teams: Team[], options: MatchIcsOptions = {}): string => {
-  const homeTeam = teamName(teams, match.homeTeamId);
-  const awayTeam = teamName(teams, match.awayTeamId);
+  const displayMatch = match as MatchWithDisplayNames;
+  const homeTeam = displayMatch.homeDisplayName ?? teamName(teams, match.homeTeamId);
+  const awayTeam = displayMatch.awayDisplayName ?? teamName(teams, match.awayTeamId);
   const start = parseJstDateTime(match.date, match.kickoffTimeJST);
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
   const now = new Date();
